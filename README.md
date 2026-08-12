@@ -54,6 +54,12 @@ npm run dev
 
 Open the local URL printed by Vite.
 
+## Deployment
+
+The repository includes a Vercel configuration for its Vite production build.
+Once the GitHub repository is connected to a Vercel project, pushes to `main`
+publish `dist` to production and pull requests receive isolated previews.
+
 ## Commands
 
 ```bash
