@@ -2,7 +2,7 @@
 
 Mote Studio is a local-first character lab for designing tiny animated SVG characters. Pick a silhouette, eye expression, and color; generate a combination; add an image texture; then export the result as SVG or PNG.
 
-The interface was built from scratch around a dark tool dock and a bright live canvas. Its motion language is inspired by playful shape studies: spring-based morphs, natural blinking, pointer gaze, idle drift, and short orbit bursts that connect state changes.
+The interface was built from scratch around a dark tool dock and a bright live canvas. Its motion language is inspired by playful shape studies: spring-based morphs, natural blinking, pointer gaze, idle drift, and an explicit spherical face-turn demonstration.
 
 ![Mote Studio on desktop](docs/screenshots/mote-studio-desktop.png)
 
@@ -12,13 +12,14 @@ The interface was built from scratch around a dark tool dock and a bright live c
 
 ## Features
 
-- Eighteen compatible SVG silhouettes with smooth path morphing
+- Twelve curated SVG silhouettes with smooth path morphing
 - Twenty-five morphable eye expressions reconstructed from the technical reference
 - Eleven contrast-aware colors and adaptive eye color
 - Calm, playful, and kinetic motion personalities
 - Automatic morph cycle with a visible pause control
 - Optional Living Eyes cadence tied to the selected motion personality
 - Pointer-following gaze, spring-based expression changes, and click-to-blink feedback
+- A reference-derived face-turn demo that projects each eye around a virtual sphere
 - Local image textures with drag-and-drop and inline validation
 - Deterministic SVG and 1024 × 1024 PNG export
 - Local MCP server for agent-generated, reproducible Motes
@@ -113,9 +114,11 @@ docs/screenshots README captures generated from the running app
 
 ## How morphing works
 
-Every silhouette resolves to a closed ring of 24 points and every eye to a 16-point ring in `packages/core`. The path generator converts each family to the same number and order of cubic Bézier commands. Because each SVG command topology stays compatible, Motion can interpolate every `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes. Hand-drawn presets such as Braincloud and Teardrop are redistributed along their perimeter before rendering, preserving their lobes and pointed profiles while keeping morphs safe.
+Every silhouette resolves to a closed ring of 24 points and every eye to a 16-point ring in `packages/core`. The path generator converts each family to the same number and order of cubic Bézier commands. Because each SVG command topology stays compatible, Motion can interpolate every `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes. Hand-drawn presets such as Cloud and Teardrop are redistributed along their perimeter before rendering, preserving their lobes and pointed profiles while keeping morphs safe.
 
-Ambient movement is isolated from body morphing, expression morphing, gaze, blinking, and orbit effects. User-selected eye changes use an interruptible spring; automatic expression changes run at a restrained cadence and stop under `prefers-reduced-motion`. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
+The twelve-shape set was redrawn as code-native geometry after a reference-only silhouette study. No generated bitmap is included in the application, exports, or package output.
+
+Ambient movement is isolated from body morphing, expression morphing, gaze, blinking, and face turning. The turn demo follows the supplied reference's spherical projection: each eye travels around a virtual face, compresses with depth, and disappears only when it passes behind the silhouette. User-selected eye changes use an interruptible spring; automatic expression changes run at a restrained cadence and stop under `prefers-reduced-motion`. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
 
 ## Accessibility
 

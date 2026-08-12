@@ -15,7 +15,7 @@ import {
 describe('Mote core', () => {
   it('provides compatible morph targets for every public shape', () => {
     expect(SHAPES.map((shape) => shape.id)).toEqual(SHAPE_IDS)
-    expect(SHAPES).toHaveLength(18)
+    expect(SHAPES).toHaveLength(12)
 
     for (const shape of SHAPES) {
       expect(shape.path).toMatch(/^M /)

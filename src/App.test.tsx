@@ -55,6 +55,15 @@ describe('Mote Studio', () => {
     expect(await screen.findByText('Motion character')).toBeInTheDocument()
   })
 
+  it('offers the reference-derived face turn without background effects', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Turn' }))
+
+    expect(screen.getByText('The mote turned its face')).toBeInTheDocument()
+    expect(document.querySelector('ellipse')).not.toBeInTheDocument()
+  })
+
   it('shows an inline validation error for unsupported uploads', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('tab', { name: 'upload' }))

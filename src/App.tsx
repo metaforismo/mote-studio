@@ -80,7 +80,7 @@ function App() {
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null)
   const [gaze, setGaze] = useState({ x: 0, y: 0 })
   const [blinkToken, setBlinkToken] = useState(0)
-  const [burstToken, setBurstToken] = useState(0)
+  const [turnToken, setTurnToken] = useState(0)
   const [isGenerating, setIsGenerating] = useState(false)
   const [exportState, setExportState] = useState<ExportState>('idle')
   const [announcement, setAnnouncement] = useState('Mote ready')
@@ -111,7 +111,6 @@ function App() {
           current.shapeId,
         ),
       }))
-      setBurstToken((value) => value + 1)
       setAnnouncement('The mote changed shape')
     }, 7800)
 
@@ -155,7 +154,6 @@ function App() {
 
   const selectShape = (shapeId: ShapeId) => {
     setConfig((current) => ({ ...current, shapeId }))
-    setBurstToken((value) => value + 1)
     setAnnouncement(`${shapeById(shapeId).label} shape selected`)
   }
 
@@ -200,7 +198,6 @@ function App() {
           ),
         }))
         setUploadedImage(null)
-        setBurstToken((value) => value + 1)
         setIsGenerating(false)
         setAnnouncement('A new mote was generated')
       },
@@ -212,7 +209,6 @@ function App() {
     setConfig(DEFAULT_CONFIG)
     setUploadedImage(null)
     setGaze({ x: 0, y: 0 })
-    setBurstToken((value) => value + 1)
     setExportState('idle')
     setAnnouncement('Studio reset to defaults')
   }
@@ -348,20 +344,32 @@ function App() {
                 motionLevel={config.motion}
                 gaze={gaze}
                 blinkToken={blinkToken}
-                burstToken={burstToken}
+                turnToken={turnToken}
                 imageDataUrl={uploadedImage?.dataUrl}
               />
             </button>
 
             <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-5 sm:flex-row sm:items-end sm:justify-between sm:p-7">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => setBlinkToken((value) => value + 1)}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#cfcec6] bg-[#f7f6f0]/78 px-3.5 py-2 text-xs font-medium text-[#4d4f48] backdrop-blur-sm transition-colors hover:bg-[#fffef8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.97]"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#cfcec6] bg-[#f7f6f0]/78 px-2.5 py-2 text-xs font-medium whitespace-nowrap text-[#4d4f48] backdrop-blur-sm transition-colors hover:bg-[#fffef8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.97] sm:px-3.5"
                 >
                   <Eye aria-hidden="true" size={16} />
                   Blink
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTurnToken((value) => value + 1)
+                    setAnnouncement('The mote turned its face')
+                  }}
+                  disabled={shouldReduceMotion}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#cfcec6] bg-[#f7f6f0]/78 px-2.5 py-2 text-xs font-medium whitespace-nowrap text-[#4d4f48] backdrop-blur-sm transition-colors hover:bg-[#fffef8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-65 sm:px-3.5"
+                >
+                  <ArrowsClockwise aria-hidden="true" size={15} />
+                  Turn
                 </button>
                 <button
                   type="button"
@@ -372,7 +380,7 @@ function App() {
                     }))
                   }
                   disabled={shouldReduceMotion}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#cfcec6] bg-[#f7f6f0]/78 px-3.5 py-2 text-xs font-medium text-[#4d4f48] backdrop-blur-sm transition-colors hover:bg-[#fffef8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-65"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#cfcec6] bg-[#f7f6f0]/78 px-2.5 py-2 text-xs font-medium whitespace-nowrap text-[#4d4f48] backdrop-blur-sm transition-colors hover:bg-[#fffef8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-65 sm:px-3.5"
                   aria-pressed={isMorphing}
                 >
                   {isMorphing ? (
@@ -608,7 +616,6 @@ function App() {
                     onChange={(image) => {
                       setUploadedImage(image)
                       if (image) {
-                        setBurstToken((value) => value + 1)
                         setAnnouncement(`${image.name} applied as a texture`)
                       } else {
                         setAnnouncement('Texture removed')
@@ -663,7 +670,7 @@ function App() {
         </main>
 
         <footer className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-4 pt-1 pb-8 text-xs text-[#85887f] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <p>Eighteen shapes · Twenty-five eye expressions · Eleven colors</p>
+          <p>Twelve shapes · Twenty-five eye expressions · Eleven colors</p>
           <a
             href="#studio"
             className="inline-flex min-h-6 items-center gap-1.5 self-start rounded-lg transition-colors hover:text-[#c7c9c1] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none sm:self-auto"

@@ -1,4 +1,9 @@
-import { motion, useReducedMotion } from 'motion/react'
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from 'motion/react'
 import { memo, useEffect, useId, useState } from 'react'
 import {
   eyeById,
@@ -16,7 +21,7 @@ type MoteAvatarProps = {
   motionLevel: MotionLevel
   gaze: { x: number; y: number }
   blinkToken: number
-  burstToken: number
+  turnToken: number
   imageDataUrl?: string | null
 }
 
@@ -56,47 +61,23 @@ const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const
 const ALIVE_SPRING = { type: 'spring', duration: 0.5, bounce: 0.2 } as const
 
-const OrbitBurst = memo(function OrbitBurst({ token }: { token: number }) {
-  if (token === 0) return null
+const FACE_CENTER_X = 160
+const FACE_RADIUS = 108
 
-  const strokes = ['#f56a16', '#16a79d', '#7651d6', '#d72879', '#d2b83d']
+const projectEye = (baseX: number, turnDegrees: number) => {
+  const offset = baseX - FACE_CENTER_X
+  const baseLongitude = Math.asin(offset / FACE_RADIUS)
+  const longitude = baseLongitude + (turnDegrees * Math.PI) / 180
+  const depth = Math.cos(longitude)
+  const perspective =
+    Math.max(depth, 0.02) / Math.max(Math.cos(baseLongitude), 0.02)
+  const projectedX = FACE_CENTER_X + FACE_RADIUS * Math.sin(longitude)
 
-  return (
-    <motion.g
-      key={token}
-      initial={{ opacity: 0, transform: 'scale(0.92)' }}
-      animate={{
-        opacity: [0, 0.92, 0],
-        transform: ['scale(0.92)', 'scale(1.12)', 'scale(1.32)'],
-      }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 1.05, times: [0, 0.28, 1], ease: EASE_OUT }}
-      style={{ transformOrigin: '160px 160px' }}
-      aria-hidden="true"
-    >
-      {strokes.map((stroke, index) => (
-        <motion.ellipse
-          key={stroke}
-          cx="160"
-          cy="160"
-          rx={126 - index * 5}
-          ry={48 + index * 8}
-          fill="none"
-          stroke={stroke}
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeDasharray={`${160 + index * 22} 94`}
-          initial={{ transform: `rotate(${index * 28 - 52}deg)` }}
-          animate={{
-            transform: `rotate(${index % 2 === 0 ? 210 + index * 18 : -190 - index * 14}deg)`,
-          }}
-          transition={{ duration: 1.05, ease: EASE_OUT }}
-          style={{ transformOrigin: '160px 160px' }}
-        />
-      ))}
-    </motion.g>
-  )
-})
+  return {
+    opacity: depth > 0.02 ? 1 : 0,
+    transform: `translate3d(${projectedX - baseX}px, 0, 0) scaleX(${perspective})`,
+  }
+}
 
 export const MoteAvatar = memo(function MoteAvatar({
   shapeId,
@@ -106,11 +87,28 @@ export const MoteAvatar = memo(function MoteAvatar({
   motionLevel,
   gaze,
   blinkToken,
-  burstToken,
+  turnToken,
   imageDataUrl,
 }: MoteAvatarProps) {
   const shouldReduceMotion = useReducedMotion()
   const [autoBlink, setAutoBlink] = useState(0)
+  const faceTurn = useMotionValue(0)
+  const leftTurnTransform = useTransform(
+    faceTurn,
+    (degrees) => projectEye(134, degrees).transform,
+  )
+  const rightTurnTransform = useTransform(
+    faceTurn,
+    (degrees) => projectEye(189, degrees).transform,
+  )
+  const leftTurnOpacity = useTransform(
+    faceTurn,
+    (degrees) => projectEye(134, degrees).opacity,
+  )
+  const rightTurnOpacity = useTransform(
+    faceTurn,
+    (degrees) => projectEye(189, degrees).opacity,
+  )
   const clipId = useId().replaceAll(':', '')
   const path = shapeById(shapeId).path
   const eyes = eyeById(eyeStyle)
@@ -133,6 +131,34 @@ export const MoteAvatar = memo(function MoteAvatar({
     schedule()
     return () => window.clearTimeout(timeout)
   }, [shouldReduceMotion])
+
+  useEffect(() => {
+    if (turnToken === 0 || shouldReduceMotion) {
+      faceTurn.set(0)
+      return
+    }
+
+    let frame = 0
+    const startedAt = performance.now()
+
+    const turn = (now: number) => {
+      const progress = Math.min((now - startedAt) / 1200, 1)
+      faceTurn.set(Math.sin(progress * Math.PI * 2) * 85 * (1 - progress))
+
+      if (progress < 1) {
+        frame = window.requestAnimationFrame(turn)
+      } else {
+        faceTurn.set(0)
+      }
+    }
+
+    frame = window.requestAnimationFrame(turn)
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      faceTurn.set(0)
+    }
+  }, [faceTurn, shouldReduceMotion, turnToken])
 
   return (
     <motion.svg
@@ -157,10 +183,6 @@ export const MoteAvatar = memo(function MoteAvatar({
           />
         </clipPath>
       </defs>
-
-      {!shouldReduceMotion && (
-        <OrbitBurst key={burstToken} token={burstToken} />
-      )}
 
       <motion.path
         initial={false}
@@ -205,28 +227,44 @@ export const MoteAvatar = memo(function MoteAvatar({
           }}
           transition={ALIVE_SPRING}
         >
-          <motion.path
-            initial={false}
-            animate={{
-              d: eyes.leftPath,
-              fill: eyeColor,
+          <motion.g
+            style={{
+              opacity: leftTurnOpacity,
+              transform: leftTurnTransform,
+              transformOrigin: '134px 153px',
             }}
-            transition={{
-              d: morphTransition,
-              fill: { duration: 0.2, ease: EASE_OUT },
+          >
+            <motion.path
+              initial={false}
+              animate={{
+                d: eyes.leftPath,
+                fill: eyeColor,
+              }}
+              transition={{
+                d: morphTransition,
+                fill: { duration: 0.2, ease: EASE_OUT },
+              }}
+            />
+          </motion.g>
+          <motion.g
+            style={{
+              opacity: rightTurnOpacity,
+              transform: rightTurnTransform,
+              transformOrigin: '189px 153px',
             }}
-          />
-          <motion.path
-            initial={false}
-            animate={{
-              d: eyes.rightPath,
-              fill: eyeColor,
-            }}
-            transition={{
-              d: morphTransition,
-              fill: { duration: 0.2, ease: EASE_OUT },
-            }}
-          />
+          >
+            <motion.path
+              initial={false}
+              animate={{
+                d: eyes.rightPath,
+                fill: eyeColor,
+              }}
+              transition={{
+                d: morphTransition,
+                fill: { duration: 0.2, ease: EASE_OUT },
+              }}
+            />
+          </motion.g>
         </motion.g>
       </motion.g>
     </motion.svg>

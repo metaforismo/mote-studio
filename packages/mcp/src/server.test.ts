@@ -39,7 +39,7 @@ describe('Mote MCP server', () => {
     expect(presets.structuredContent).toMatchObject({
       shapes: expect.arrayContaining([
         expect.objectContaining({ id: 'blob' }),
-        expect.objectContaining({ id: 'leaf' }),
+        expect.objectContaining({ id: 'cloud', label: 'Cloud' }),
       ]),
       eyes: expect.arrayContaining([
         expect.objectContaining({ id: 'neutral', referenceIndex: 0 }),
