@@ -278,32 +278,19 @@ export const MoteAvatar = memo(function MoteAvatar({
         />
       ) : null}
 
-      <motion.g
-        data-eye="left"
-        style={{
-          opacity: leftOpacity,
-          transform: leftTransform,
-          transformOrigin: `${eyes.leftCenter.x}px ${eyes.leftCenter.y}px`,
-        }}
-      >
+      <g data-eye-layer="clipped" clipPath={`url(#${clipId})`}>
         <motion.g
-          key={blinkKey}
-          initial={{ transform: 'scaleY(1)' }}
-          animate={sharedBlinkAnimation}
-          transition={{
-            duration: 0.32,
-            times: [0, 0.42, 1],
-            ease: EASE_OUT,
-          }}
+          data-eye="left"
           style={{
+            opacity: leftOpacity,
+            transform: leftTransform,
             transformOrigin: `${eyes.leftCenter.x}px ${eyes.leftCenter.y}px`,
           }}
         >
           <motion.g
-            key={`left-${winkTokens.left}`}
-            data-wink="left"
+            key={blinkKey}
             initial={{ transform: 'scaleY(1)' }}
-            animate={winkTokens.left > 0 ? blinkAnimation : undefined}
+            animate={sharedBlinkAnimation}
             transition={{
               duration: 0.32,
               times: [0, 0.42, 1],
@@ -313,44 +300,44 @@ export const MoteAvatar = memo(function MoteAvatar({
               transformOrigin: `${eyes.leftCenter.x}px ${eyes.leftCenter.y}px`,
             }}
           >
-            <motion.path
-              initial={false}
-              animate={{ d: eyes.leftPath, fill: eyeColor }}
+            <motion.g
+              key={`left-${winkTokens.left}`}
+              data-wink="left"
+              initial={{ transform: 'scaleY(1)' }}
+              animate={winkTokens.left > 0 ? blinkAnimation : undefined}
               transition={{
-                d: morphTransition,
-                fill: { duration: 0.2, ease: EASE_OUT },
+                duration: 0.32,
+                times: [0, 0.42, 1],
+                ease: EASE_OUT,
               }}
-            />
+              style={{
+                transformOrigin: `${eyes.leftCenter.x}px ${eyes.leftCenter.y}px`,
+              }}
+            >
+              <motion.path
+                initial={false}
+                animate={{ d: eyes.leftPath, fill: eyeColor }}
+                transition={{
+                  d: morphTransition,
+                  fill: { duration: 0.2, ease: EASE_OUT },
+                }}
+              />
+            </motion.g>
           </motion.g>
         </motion.g>
-      </motion.g>
 
-      <motion.g
-        data-eye="right"
-        style={{
-          opacity: rightOpacity,
-          transform: rightTransform,
-          transformOrigin: `${eyes.rightCenter.x}px ${eyes.rightCenter.y}px`,
-        }}
-      >
         <motion.g
-          key={blinkKey}
-          initial={{ transform: 'scaleY(1)' }}
-          animate={sharedBlinkAnimation}
-          transition={{
-            duration: 0.32,
-            times: [0, 0.42, 1],
-            ease: EASE_OUT,
-          }}
+          data-eye="right"
           style={{
+            opacity: rightOpacity,
+            transform: rightTransform,
             transformOrigin: `${eyes.rightCenter.x}px ${eyes.rightCenter.y}px`,
           }}
         >
           <motion.g
-            key={`right-${winkTokens.right}`}
-            data-wink="right"
+            key={blinkKey}
             initial={{ transform: 'scaleY(1)' }}
-            animate={winkTokens.right > 0 ? blinkAnimation : undefined}
+            animate={sharedBlinkAnimation}
             transition={{
               duration: 0.32,
               times: [0, 0.42, 1],
@@ -360,17 +347,32 @@ export const MoteAvatar = memo(function MoteAvatar({
               transformOrigin: `${eyes.rightCenter.x}px ${eyes.rightCenter.y}px`,
             }}
           >
-            <motion.path
-              initial={false}
-              animate={{ d: eyes.rightPath, fill: eyeColor }}
+            <motion.g
+              key={`right-${winkTokens.right}`}
+              data-wink="right"
+              initial={{ transform: 'scaleY(1)' }}
+              animate={winkTokens.right > 0 ? blinkAnimation : undefined}
               transition={{
-                d: morphTransition,
-                fill: { duration: 0.2, ease: EASE_OUT },
+                duration: 0.32,
+                times: [0, 0.42, 1],
+                ease: EASE_OUT,
               }}
-            />
+              style={{
+                transformOrigin: `${eyes.rightCenter.x}px ${eyes.rightCenter.y}px`,
+              }}
+            >
+              <motion.path
+                initial={false}
+                animate={{ d: eyes.rightPath, fill: eyeColor }}
+                transition={{
+                  d: morphTransition,
+                  fill: { duration: 0.2, ease: EASE_OUT },
+                }}
+              />
+            </motion.g>
           </motion.g>
         </motion.g>
-      </motion.g>
+      </g>
     </motion.svg>
   )
 })

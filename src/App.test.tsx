@@ -52,23 +52,33 @@ describe('Mote Studio', () => {
       'aria-selected',
       'true',
     )
-    expect(await screen.findByText('Procedural face rig')).toBeInTheDocument()
+    expect(await screen.findByText('Face pose')).toBeInTheDocument()
   })
 
   it('applies a state pose and exposes continuous face controls', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('tab', { name: 'rig' }))
-    fireEvent.click(screen.getByRole('button', { name: /Thinking/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Thinking:/ }))
 
     expect(screen.getByText('Thinking state selected')).toBeInTheDocument()
-    expect(screen.getByRole('slider', { name: 'Head turn' })).toHaveValue('-14')
+    expect(screen.getByRole('slider', { name: 'Turn' })).toHaveValue('-14')
 
-    fireEvent.change(screen.getByRole('slider', { name: 'Eye spacing' }), {
+    fireEvent.change(screen.getByRole('slider', { name: 'Spacing' }), {
       target: { value: '1.31' },
     })
-    expect(screen.getByRole('slider', { name: 'Eye spacing' })).toHaveValue(
-      '1.31',
-    )
+    expect(screen.getByRole('slider', { name: 'Spacing' })).toHaveValue('1.31')
+
+    const gazePad = screen.getByRole('button', { name: /Eye direction:/ })
+    fireEvent.keyDown(gazePad, { key: 'Home' })
+    expect(gazePad).toHaveAccessibleName(/center, middle/)
+  })
+
+  it('clips projected eyes to the current silhouette', () => {
+    render(<App />)
+
+    const eyeLayer = document.querySelector('[data-eye-layer="clipped"]')
+    expect(eyeLayer).toBeInTheDocument()
+    expect(eyeLayer?.getAttribute('clip-path')).toMatch(/^url\(#.+\)$/)
   })
 
   it('offers the reference-derived face turn without background effects', () => {

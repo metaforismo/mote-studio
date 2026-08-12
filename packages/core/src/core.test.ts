@@ -94,6 +94,7 @@ describe('Mote core', () => {
     expect(svg).toContain('@keyframes mote-idle')
     expect(svg).toContain('aria-labelledby=')
     expect(svg).toContain(eyeById('joyful').leftPath)
+    expect(svg).toMatch(/-eyes" fill="#[0-9a-f]+" clip-path="url\(#.+-clip\)"/)
   })
 
   it('rejects unsafe texture URLs', () => {

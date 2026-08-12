@@ -124,7 +124,7 @@ export const createAvatarSvg = ({
     imageDataUrl
       ? `<image href="${escapeMarkup(imageDataUrl)}" x="48" y="48" width="224" height="224" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})" opacity=".78"/>`
       : '',
-    `<g id="${rootId}-eyes" fill="${normalizedEyeColor}">`,
+    `<g id="${rootId}-eyes" fill="${normalizedEyeColor}" clip-path="url(#${clipId})">`,
     `<g opacity="${leftProjection.opacity}" transform="${leftProjection.svgTransform}"><path d="${eyes.leftPath}"/></g>`,
     `<g opacity="${rightProjection.opacity}" transform="${rightProjection.svgTransform}"><path d="${eyes.rightPath}"/></g>`,
     '</g></g></svg>',

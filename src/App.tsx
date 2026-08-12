@@ -7,12 +7,12 @@ import {
   MagicWand,
   Pause,
   Play,
-  SlidersHorizontal,
 } from '@phosphor-icons/react'
 import { MotionConfig, useReducedMotion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { EyePicker } from './components/EyePicker'
+import { FaceRigPanel } from './components/FaceRigPanel'
 import { MoteAvatar } from './components/MoteAvatar'
 import { PalettePicker } from './components/PalettePicker'
 import { ShapePicker } from './components/ShapePicker'
@@ -44,80 +44,6 @@ type StudioTab = 'bot' | 'rig' | 'generate' | 'upload'
 type ExportState = 'idle' | 'png' | 'error'
 
 const TAB_ORDER: StudioTab[] = ['bot', 'rig', 'generate', 'upload']
-
-const RIG_CONTROLS: Array<{
-  key: keyof FaceRigConfig
-  label: string
-  min: number
-  max: number
-  step: number
-  format: (value: number) => string
-}> = [
-  {
-    key: 'turn',
-    label: 'Head turn',
-    min: -100,
-    max: 100,
-    step: 1,
-    format: (value) => `${Math.round(value)}°`,
-  },
-  {
-    key: 'gazeX',
-    label: 'Horizontal gaze',
-    min: -1,
-    max: 1,
-    step: 0.01,
-    format: (value) => value.toFixed(2),
-  },
-  {
-    key: 'gazeY',
-    label: 'Vertical gaze',
-    min: -1,
-    max: 1,
-    step: 0.01,
-    format: (value) => value.toFixed(2),
-  },
-  {
-    key: 'eyeSpacing',
-    label: 'Eye spacing',
-    min: 0.55,
-    max: 1.55,
-    step: 0.01,
-    format: (value) => `${value.toFixed(2)}×`,
-  },
-  {
-    key: 'eyeScale',
-    label: 'Eye scale',
-    min: 0.45,
-    max: 1.65,
-    step: 0.01,
-    format: (value) => `${value.toFixed(2)}×`,
-  },
-  {
-    key: 'eyeRotation',
-    label: 'Local rotation',
-    min: -55,
-    max: 55,
-    step: 1,
-    format: (value) => `${Math.round(value)}°`,
-  },
-  {
-    key: 'eyeOffsetY',
-    label: 'Eye height',
-    min: -34,
-    max: 34,
-    step: 1,
-    format: (value) => `${Math.round(value)}`,
-  },
-  {
-    key: 'perspective',
-    label: 'Perspective',
-    min: 0,
-    max: 1.4,
-    step: 0.01,
-    format: (value) => `${value.toFixed(2)}×`,
-  },
-]
 
 const readSavedConfig = (): MoteConfig => {
   try {
@@ -626,136 +552,27 @@ function App() {
                 ) : null}
 
                 {activeTab === 'rig' ? (
-                  <div className="space-y-6">
-                    <div>
-                      <div className="flex items-center gap-2 text-sm font-medium text-[#f2f0e8]">
-                        <SlidersHorizontal aria-hidden="true" size={17} />
-                        Procedural face rig
-                      </div>
-                      <p className="mt-1.5 text-xs leading-relaxed text-[#92958c]">
-                        Every control reprojects the SVG eyes on a virtual
-                        sphere. Drag quickly: the spring continues from its
-                        current pose.
-                      </p>
-                    </div>
-
-                    <fieldset>
-                      <legend className="mb-3 text-[0.68rem] font-semibold tracking-[0.18em] text-[#8f9188] uppercase">
-                        State
-                      </legend>
-                      <div className="grid grid-cols-2 gap-2">
-                        {AVATAR_STATES.map((state) => {
-                          const isSelected = state.id === config.state
-                          return (
-                            <button
-                              key={state.id}
-                              type="button"
-                              aria-pressed={isSelected}
-                              onClick={() => selectState(state.id)}
-                              className="rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
-                              style={{
-                                borderColor: isSelected
-                                  ? '#f56a16'
-                                  : 'rgba(255,255,255,0.075)',
-                                backgroundColor: isSelected
-                                  ? 'rgba(245,106,22,0.09)'
-                                  : '#1c1d19',
-                              }}
-                            >
-                              <span
-                                className={`block text-xs font-semibold ${
-                                  isSelected
-                                    ? 'text-[#f2f0e8]'
-                                    : 'text-[#b0b2aa]'
-                                }`}
-                              >
-                                {state.label}
-                              </span>
-                              <span className="mt-0.5 block truncate text-[0.64rem] text-[#7f8279]">
-                                {state.description}
-                              </span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </fieldset>
-
-                    <div className="space-y-4 rounded-[1.2rem] border border-white/[0.07] bg-[#1c1d19] p-4">
-                      {RIG_CONTROLS.map((control) => {
-                        const value = config.face[control.key]
-                        return (
-                          <div key={control.key} className="block">
-                            <span className="mb-2 flex items-center justify-between gap-3 text-xs">
-                              <label
-                                htmlFor={`rig-${control.key}`}
-                                className="font-medium text-[#c8cac2]"
-                              >
-                                {control.label}
-                              </label>
-                              <output
-                                htmlFor={`rig-${control.key}`}
-                                className="min-w-12 rounded-md bg-white/[0.055] px-1.5 py-0.5 text-right font-mono text-[0.65rem] text-[#a7aaa1]"
-                              >
-                                {control.format(value)}
-                              </output>
-                            </span>
-                            <input
-                              id={`rig-${control.key}`}
-                              type="range"
-                              min={control.min}
-                              max={control.max}
-                              step={control.step}
-                              value={value}
-                              aria-valuetext={control.format(value)}
-                              onChange={(event) =>
-                                updateFaceRig(
-                                  control.key,
-                                  Number(event.target.value),
-                                )
-                              }
-                              className="h-5 w-full cursor-ew-resize accent-[#f56a16]"
-                            />
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => wink('left')}
-                        className="rounded-xl border border-white/10 px-2 py-2.5 text-xs font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
-                      >
-                        Wink left
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => wink('right')}
-                        className="rounded-xl border border-white/10 px-2 py-2.5 text-xs font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
-                      >
-                        Wink right
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setConfig((current) => ({
-                            ...current,
-                            state: 'idle',
-                            face: DEFAULT_FACE_RIG,
-                          }))
-                          setAnnouncement('Face rig centered')
-                        }}
-                        className="rounded-xl border border-white/10 px-2 py-2.5 text-xs font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
-                      >
-                        Center
-                      </button>
-                    </div>
-
-                    <p className="rounded-xl border border-[#f56a16]/20 bg-[#f56a16]/[0.065] px-3 py-2.5 text-[0.68rem] leading-relaxed text-[#b8aaa0]">
-                      Twenty-five contours × eight data-driven states × this
-                      continuous rig produce an open-ended expression space.
-                    </p>
-                  </div>
+                  <FaceRigPanel
+                    state={config.state}
+                    face={config.face}
+                    shapeId={config.shapeId}
+                    color={config.color}
+                    eyeColor={eyeColor}
+                    onSelectState={selectState}
+                    onChange={updateFaceRig}
+                    onWink={wink}
+                    onResetPose={() => {
+                      setConfig((current) => ({
+                        ...current,
+                        state: 'idle',
+                        eyeStyle:
+                          avatarStateById('idle').eyePool[0] ??
+                          current.eyeStyle,
+                        face: DEFAULT_FACE_RIG,
+                      }))
+                      setAnnouncement('Face pose reset')
+                    }}
+                  />
                 ) : null}
 
                 {activeTab === 'generate' ? (
