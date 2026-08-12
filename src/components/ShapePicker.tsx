@@ -22,10 +22,10 @@ export function ShapePicker({
       <legend className="mb-3 flex w-full items-center justify-between gap-3 text-[0.68rem] font-semibold tracking-[0.18em] text-[#8f9188] uppercase">
         <span>Shape</span>
         <span className="tracking-normal text-[#686b63] normal-case">
-          12 silhouettes
+          13 silhouettes
         </span>
       </legend>
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-5 gap-2 sm:grid-cols-7">
         {SHAPES.map((shape) => {
           const isSelected = selected === shape.id
           return (

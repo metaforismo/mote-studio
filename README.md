@@ -12,7 +12,7 @@ The interface was built from scratch around a dark tool dock and a bright live c
 
 ## Features
 
-- Twelve curated SVG silhouettes with smooth path morphing
+- Thirteen curated SVG silhouettes with smooth path morphing
 - Twenty-five morphable eye expressions reconstructed from the technical reference
 - Eleven contrast-aware colors and adaptive eye color
 - Calm, playful, and kinetic motion personalities
@@ -116,7 +116,7 @@ docs/screenshots README captures generated from the running app
 
 Every silhouette resolves to a closed ring of 24 points and every eye to a 16-point ring in `packages/core`. The path generator converts each family to the same number and order of cubic Bézier commands. Because each SVG command topology stays compatible, Motion can interpolate every `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes. Hand-drawn presets such as Cloud and Teardrop are redistributed along their perimeter before rendering, preserving their lobes and pointed profiles while keeping morphs safe.
 
-The twelve-shape set was redrawn as code-native geometry after a reference-only silhouette study. No generated bitmap is included in the application, exports, or package output.
+The thirteen-shape set was redrawn as code-native geometry after reference-only silhouette studies. Cloud and Brain are deliberately separate: Cloud has a calm base and a clean three-lobe crown, while Brain stays asymmetric and lobed around its full perimeter. No generated bitmap is included in the application, exports, or package output.
 
 Ambient movement is isolated from body morphing, expression morphing, gaze, blinking, and face turning. The turn demo follows the supplied reference's spherical projection: each eye travels around a virtual face, compresses with depth, and disappears only when it passes behind the silhouette. User-selected eye changes use an interruptible spring; automatic expression changes run at a restrained cadence and stop under `prefers-reduced-motion`. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
 

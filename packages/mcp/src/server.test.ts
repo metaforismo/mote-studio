@@ -40,6 +40,7 @@ describe('Mote MCP server', () => {
       shapes: expect.arrayContaining([
         expect.objectContaining({ id: 'blob' }),
         expect.objectContaining({ id: 'cloud', label: 'Cloud' }),
+        expect.objectContaining({ id: 'brain', label: 'Brain' }),
       ]),
       eyes: expect.arrayContaining([
         expect.objectContaining({ id: 'neutral', referenceIndex: 0 }),

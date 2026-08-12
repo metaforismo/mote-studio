@@ -8,6 +8,7 @@ export const SHAPE_IDS = [
   'wedge',
   'gem',
   'cloud',
+  'brain',
   'teardrop',
   'dome',
   'bean',
@@ -53,6 +54,30 @@ const superellipse = (
         Math.sign(Math.sin(angle)) *
         Math.abs(Math.sin(angle)) ** (2 / power),
   }))
+
+const wobblySuperellipse = (
+  radiusX: number,
+  radiusY: number,
+  power: number,
+  modulation: (angle: number) => number,
+): Point[] =>
+  sample((angle) => {
+    const radius = modulation(angle)
+    return {
+      x:
+        CENTER +
+        radiusX *
+          Math.sign(Math.cos(angle)) *
+          Math.abs(Math.cos(angle)) ** (2 / power) *
+          radius,
+      y:
+        CENTER +
+        radiusY *
+          Math.sign(Math.sin(angle)) *
+          Math.abs(Math.sin(angle)) ** (2 / power) *
+          radius,
+    }
+  })
 
 const radial = (
   radiusX: number,
@@ -242,43 +267,53 @@ const pointSets: Record<ShapeId, Point[]> = {
     [147, 64],
   ]),
   cloud: fromCoordinates([
-    [160, 68],
-    [181, 71],
-    [196, 84],
-    [202, 101],
-    [202, 111],
-    [214, 101],
-    [229, 99],
-    [243, 107],
-    [252, 121],
-    [254, 139],
-    [248, 152],
-    [263, 158],
-    [273, 171],
-    [274, 189],
-    [267, 207],
-    [252, 220],
-    [232, 225],
-    [205, 226],
-    [177, 226],
-    [149, 226],
-    [121, 226],
-    [94, 226],
-    [72, 218],
-    [59, 204],
-    [54, 186],
-    [58, 169],
-    [69, 158],
-    [65, 145],
-    [68, 130],
-    [78, 118],
-    [91, 109],
-    [104, 110],
-    [115, 118],
-    [119, 96],
-    [134, 79],
-    [150, 70],
+    [160, 60],
+    [181, 61],
+    [198, 72],
+    [208, 89],
+    [222, 83],
+    [240, 86],
+    [253, 98],
+    [261, 112],
+    [263, 128],
+    [278, 133],
+    [289, 145],
+    [293, 162],
+    [290, 179],
+    [280, 194],
+    [266, 205],
+    [247, 213],
+    [224, 216],
+    [199, 216],
+    [174, 216],
+    [149, 216],
+    [124, 216],
+    [99, 216],
+    [76, 214],
+    [59, 207],
+    [46, 194],
+    [40, 178],
+    [41, 162],
+    [48, 147],
+    [60, 136],
+    [63, 117],
+    [74, 102],
+    [89, 94],
+    [105, 94],
+    [118, 100],
+    [121, 82],
+    [136, 68],
+    [151, 62],
   ]),
+  brain: wobblySuperellipse(
+    118,
+    78,
+    4,
+    (angle) =>
+      1 +
+      0.075 * Math.sin(angle * 5 + Math.PI) +
+      0.025 * Math.sin(angle * 3 + 0.4),
+  ),
   teardrop: fromCoordinates([
     [160, 38],
     [170, 52],
@@ -352,8 +387,9 @@ const metadata: Record<
   dome: { label: 'Dome', description: 'Low and relaxed' },
   cloud: {
     label: 'Cloud',
-    description: 'Puffy, soft and unmistakably cloudy',
+    description: 'Clean, puffy and softly grounded',
   },
+  brain: { label: 'Brain', description: 'Lobed and playfully thoughtful' },
   teardrop: { label: 'Teardrop', description: 'Pointed, warm and expressive' },
   bean: { label: 'Bean', description: 'Asymmetric and friendly' },
 }
