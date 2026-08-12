@@ -10,6 +10,13 @@ export {
   type MoteConfig,
 } from './presets.js'
 export {
+  EYES,
+  EYE_IDS,
+  eyeById,
+  type EyeDefinition,
+  type EyeId,
+} from './eyes.js'
+export {
   SHAPES,
   SHAPE_IDS,
   closedCurvePath,

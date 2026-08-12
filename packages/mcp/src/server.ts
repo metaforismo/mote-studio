@@ -3,6 +3,8 @@ import { McpServer } from '@modelcontextprotocol/server'
 import {
   COLORS,
   DEFAULT_CONFIG,
+  EYES,
+  EYE_IDS,
   MOTION_IDS,
   MOTION_LEVELS,
   SHAPES,
@@ -13,6 +15,7 @@ import {
 import * as z from 'zod/v4'
 
 const shapeIdSchema = z.enum(SHAPE_IDS)
+const eyeIdSchema = z.enum(EYE_IDS)
 const motionSchema = z.enum(MOTION_IDS)
 const colorSchema = z
   .string()
@@ -20,9 +23,11 @@ const colorSchema = z
 
 const moteConfigSchema = z.object({
   shapeId: shapeIdSchema,
+  eyeStyle: eyeIdSchema,
   color: colorSchema,
   motion: motionSchema,
   autoMorph: z.boolean(),
+  autoEyes: z.boolean(),
 })
 
 const renderedMoteSchema = z.object({
@@ -49,7 +54,7 @@ export const createMoteServer = () => {
     { name: 'mote-studio', version: '0.1.0' },
     {
       instructions:
-        'Use list_mote_presets to discover supported values. Use create_mote for a deterministic configuration plus portable SVG, or render_mote_svg when the exact configuration is already known. All tools are local, read-only, and network-free.',
+        'Use list_mote_presets to discover supported silhouettes, eye expressions, colors, and motion values. Use create_mote for a deterministic configuration plus portable SVG, or render_mote_svg when the exact configuration is already known. All tools are local, read-only, and network-free.',
     },
   )
 
@@ -58,12 +63,20 @@ export const createMoteServer = () => {
     {
       title: 'List Mote presets',
       description:
-        'List every supported body shape, palette color, motion personality, and the default configuration.',
+        'List every supported body shape, eye expression, palette color, motion personality, and the default configuration.',
       inputSchema: z.object({}),
       outputSchema: z.object({
         shapes: z.array(
           z.object({
             id: shapeIdSchema,
+            label: z.string(),
+            description: z.string(),
+          }),
+        ),
+        eyes: z.array(
+          z.object({
+            id: eyeIdSchema,
+            referenceIndex: z.number().int().min(0),
             label: z.string(),
             description: z.string(),
           }),
@@ -84,6 +97,12 @@ export const createMoteServer = () => {
       toToolResult({
         shapes: SHAPES.map(({ id, label, description }) => ({
           id,
+          label,
+          description,
+        })),
+        eyes: EYES.map(({ id, referenceIndex, label, description }) => ({
+          id,
+          referenceIndex,
           label,
           description,
         })),
@@ -108,9 +127,11 @@ export const createMoteServer = () => {
           .optional()
           .describe('Stable seed for reproducible output'),
         shapeId: shapeIdSchema.optional(),
+        eyeStyle: eyeIdSchema.optional(),
         color: colorSchema.optional(),
         motion: motionSchema.optional(),
         autoMorph: z.boolean().optional(),
+        autoEyes: z.boolean().optional(),
         animated: z.boolean().default(true),
         title: z
           .string()
@@ -123,16 +144,29 @@ export const createMoteServer = () => {
       outputSchema: renderedMoteSchema,
       annotations: { ...readOnlyAnnotations, idempotentHint: false },
     },
-    async ({ seed, shapeId, color, motion, autoMorph, animated, title }) => {
+    async ({
+      seed,
+      shapeId,
+      eyeStyle,
+      color,
+      motion,
+      autoMorph,
+      autoEyes,
+      animated,
+      title,
+    }) => {
       const resolvedSeed = seed ?? randomUUID()
       const config = generateMoteConfig(resolvedSeed, {
         ...(shapeId === undefined ? {} : { shapeId }),
+        ...(eyeStyle === undefined ? {} : { eyeStyle }),
         ...(color === undefined ? {} : { color }),
         ...(motion === undefined ? {} : { motion }),
         ...(autoMorph === undefined ? {} : { autoMorph }),
+        ...(autoEyes === undefined ? {} : { autoEyes }),
       })
       const svg = createAvatarSvg({
         shapeId: config.shapeId,
+        eyeStyle: config.eyeStyle,
         color: config.color,
         motion: config.motion,
         animated,
@@ -157,19 +191,31 @@ export const createMoteServer = () => {
         'Render an exact Mote configuration as dependency-free inline SVG. The result never reads files, performs network requests, or writes to disk.',
       inputSchema: z.object({
         shapeId: shapeIdSchema,
+        eyeStyle: eyeIdSchema.default('neutral'),
         color: colorSchema,
         motion: motionSchema.default('playful'),
         autoMorph: z.boolean().default(false),
+        autoEyes: z.boolean().default(false),
         animated: z.boolean().default(true),
         title: z.string().trim().min(1).max(80).optional(),
       }),
       outputSchema: renderedMoteSchema,
       annotations: { ...readOnlyAnnotations, idempotentHint: true },
     },
-    async ({ shapeId, color, motion, autoMorph, animated, title }) => {
-      const config = { shapeId, color, motion, autoMorph }
+    async ({
+      shapeId,
+      eyeStyle,
+      color,
+      motion,
+      autoMorph,
+      autoEyes,
+      animated,
+      title,
+    }) => {
+      const config = { shapeId, eyeStyle, color, motion, autoMorph, autoEyes }
       const svg = createAvatarSvg({
         shapeId,
+        eyeStyle,
         color,
         motion,
         animated,

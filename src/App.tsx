@@ -11,6 +11,7 @@ import {
 import { MotionConfig, useReducedMotion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+import { EyePicker } from './components/EyePicker'
 import { MoteAvatar } from './components/MoteAvatar'
 import { PalettePicker } from './components/PalettePicker'
 import { ShapePicker } from './components/ShapePicker'
@@ -18,12 +19,15 @@ import { UploadPanel, type UploadedImage } from './components/UploadPanel'
 import {
   COLORS,
   DEFAULT_CONFIG,
+  EYES,
   MOTION_LEVELS,
   SHAPES,
   createAvatarSvg,
+  eyeById,
   getEyeColor,
   shapeById,
   type MoteConfig,
+  type EyeId,
   type MotionLevel,
   type ShapeId,
 } from '@mote-studio/core'
@@ -40,18 +44,25 @@ const readSavedConfig = (): MoteConfig => {
     if (!saved) return DEFAULT_CONFIG
     const parsed = JSON.parse(saved) as Partial<MoteConfig>
     const isKnownShape = SHAPES.some((shape) => shape.id === parsed.shapeId)
+    const isKnownEye =
+      parsed.eyeStyle === undefined ||
+      EYES.some((eyes) => eyes.id === parsed.eyeStyle)
     const isKnownColor = COLORS.some((color) => color.value === parsed.color)
     const isKnownMotion = MOTION_LEVELS.some(
       (motionLevel) => motionLevel.id === parsed.motion,
     )
 
-    if (!isKnownShape || !isKnownColor || !isKnownMotion) return DEFAULT_CONFIG
+    if (!isKnownShape || !isKnownEye || !isKnownColor || !isKnownMotion) {
+      return DEFAULT_CONFIG
+    }
 
     return {
       shapeId: parsed.shapeId as ShapeId,
+      eyeStyle: (parsed.eyeStyle ?? DEFAULT_CONFIG.eyeStyle) as EyeId,
       color: parsed.color as string,
       motion: parsed.motion as MotionLevel,
       autoMorph: parsed.autoMorph ?? DEFAULT_CONFIG.autoMorph,
+      autoEyes: parsed.autoEyes ?? DEFAULT_CONFIG.autoEyes,
     }
   } catch {
     return DEFAULT_CONFIG
@@ -107,15 +118,39 @@ function App() {
     return () => window.clearInterval(interval)
   }, [config.autoMorph, shouldReduceMotion])
 
+  useEffect(() => {
+    if (!config.autoEyes || shouldReduceMotion) return
+
+    const cadence = { calm: 9000, playful: 6200, kinetic: 4200 }[config.motion]
+    const interval = window.setInterval(() => {
+      setConfig((current) => ({
+        ...current,
+        eyeStyle: randomDifferent(
+          EYES.map((eyes) => eyes.id),
+          current.eyeStyle,
+        ),
+      }))
+    }, cadence)
+
+    return () => window.clearInterval(interval)
+  }, [config.autoEyes, config.motion, shouldReduceMotion])
+
   const svgSource = useMemo(
     () =>
       createAvatarSvg({
         shapeId: config.shapeId,
+        eyeStyle: config.eyeStyle,
         color: config.color,
         eyeColor,
         imageDataUrl: uploadedImage?.dataUrl,
       }),
-    [config.color, config.shapeId, eyeColor, uploadedImage?.dataUrl],
+    [
+      config.color,
+      config.eyeStyle,
+      config.shapeId,
+      eyeColor,
+      uploadedImage?.dataUrl,
+    ],
   )
 
   const selectShape = (shapeId: ShapeId) => {
@@ -131,6 +166,12 @@ function App() {
     setAnnouncement(`${colorName} color selected`)
   }
 
+  const selectEyes = (eyeStyle: EyeId) => {
+    const eyes = EYES.find((entry) => entry.id === eyeStyle)
+    setConfig((current) => ({ ...current, eyeStyle }))
+    setAnnouncement(`${eyes?.label ?? 'Eye'} expression selected`)
+  }
+
   const generateMote = () => {
     if (isGenerating) return
     setIsGenerating(true)
@@ -144,6 +185,10 @@ function App() {
           shapeId: randomDifferent(
             SHAPES.map((shape) => shape.id),
             current.shapeId,
+          ),
+          eyeStyle: randomDifferent(
+            EYES.map((eyes) => eyes.id),
+            current.eyeStyle,
           ),
           color: randomDifferent(
             COLORS.map((color) => color.value),
@@ -279,7 +324,8 @@ function App() {
                 </h1>
               </div>
               <span className="rounded-full border border-[#d0cfc7] bg-[#f7f6f0]/70 px-3 py-1.5 text-[0.68rem] font-semibold tracking-[0.14em] text-[#696b63] uppercase backdrop-blur-sm">
-                {shapeById(config.shapeId).label} · {config.motion}
+                {shapeById(config.shapeId).label} ·{' '}
+                {eyeById(config.eyeStyle).label}
               </span>
             </div>
 
@@ -296,6 +342,7 @@ function App() {
             >
               <MoteAvatar
                 shapeId={config.shapeId}
+                eyeStyle={config.eyeStyle}
                 color={config.color}
                 eyeColor={eyeColor}
                 motionLevel={config.motion}
@@ -396,7 +443,15 @@ function App() {
                       selected={config.shapeId}
                       color={config.color}
                       eyeColor={eyeColor}
+                      eyeStyle={config.eyeStyle}
                       onSelect={selectShape}
+                    />
+                    <div className="h-px bg-white/[0.07]" />
+                    <EyePicker
+                      selected={config.eyeStyle}
+                      bodyColor={config.color}
+                      eyeColor={eyeColor}
+                      onSelect={selectEyes}
                     />
                     <div className="h-px bg-white/[0.07]" />
                     <PalettePicker
@@ -502,6 +557,32 @@ function App() {
                       <span className="relative h-6 w-10 shrink-0 rounded-full bg-[#383a34] transition-colors peer-checked:bg-[#f56a16] peer-focus-visible:ring-2 peer-focus-visible:ring-[#f56a16] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#171815] peer-disabled:opacity-45 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-[#f4f2eb] after:transition-transform peer-checked:after:translate-x-4" />
                     </label>
 
+                    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-[1.1rem] border border-white/[0.07] bg-[#1c1d19] p-4">
+                      <span>
+                        <span className="block text-sm font-medium text-[#e2e2dc]">
+                          Living eyes
+                        </span>
+                        <span className="mt-0.5 block text-xs text-[#85887f]">
+                          {shouldReduceMotion
+                            ? 'Disabled by your system motion preference'
+                            : 'Cycle expressions at a calm, readable cadence'}
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={config.autoEyes}
+                        disabled={shouldReduceMotion}
+                        onChange={(event) =>
+                          setConfig((current) => ({
+                            ...current,
+                            autoEyes: event.target.checked,
+                          }))
+                        }
+                        className="peer sr-only"
+                      />
+                      <span className="relative h-6 w-10 shrink-0 rounded-full bg-[#383a34] transition-colors peer-checked:bg-[#f56a16] peer-focus-visible:ring-2 peer-focus-visible:ring-[#f56a16] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#171815] peer-disabled:opacity-45 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-[#f4f2eb] after:transition-transform peer-checked:after:translate-x-4" />
+                    </label>
+
                     <button
                       type="button"
                       onClick={generateMote}
@@ -582,7 +663,7 @@ function App() {
         </main>
 
         <footer className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-4 pt-1 pb-8 text-xs text-[#85887f] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <p>Eight shapes · Eleven colors · Three motion personalities</p>
+          <p>Eighteen shapes · Twenty-five eye expressions · Eleven colors</p>
           <a
             href="#studio"
             className="inline-flex min-h-6 items-center gap-1.5 self-start rounded-lg transition-colors hover:text-[#c7c9c1] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none sm:self-auto"

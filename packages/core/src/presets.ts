@@ -1,3 +1,4 @@
+import type { EyeId } from './eyes.js'
 import type { ShapeId } from './shapes.js'
 
 export const COLORS = [
@@ -19,16 +20,20 @@ export type MotionLevel = (typeof MOTION_IDS)[number]
 
 export type MoteConfig = {
   shapeId: ShapeId
+  eyeStyle: EyeId
   color: string
   motion: MotionLevel
   autoMorph: boolean
+  autoEyes: boolean
 }
 
 export const DEFAULT_CONFIG: MoteConfig = {
-  shapeId: 'orb',
+  shapeId: 'blob',
+  eyeStyle: 'neutral',
   color: '#f56a16',
   motion: 'playful',
   autoMorph: true,
+  autoEyes: false,
 }
 
 export const MOTION_LEVELS: Array<{

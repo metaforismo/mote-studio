@@ -5,10 +5,14 @@ import {
   normalizeHexColor,
   type MoteConfig,
 } from './presets.js'
+import { EYE_IDS } from './eyes.js'
 import { SHAPE_IDS } from './shapes.js'
 
 export type MoteOverrides = Partial<
-  Pick<MoteConfig, 'shapeId' | 'color' | 'motion' | 'autoMorph'>
+  Pick<
+    MoteConfig,
+    'shapeId' | 'eyeStyle' | 'color' | 'motion' | 'autoMorph' | 'autoEyes'
+  >
 >
 
 const hashSeed = (seed: string): number => {
@@ -45,11 +49,13 @@ export const generateMoteConfig = (
   const random = mulberry32(hashSeed(normalizedSeed))
   return {
     shapeId: overrides.shapeId ?? pick(SHAPE_IDS, random),
+    eyeStyle: overrides.eyeStyle ?? pick(EYE_IDS, random),
     color:
       overrides.color === undefined
         ? pick(COLORS, random).value
         : normalizeHexColor(overrides.color),
     motion: overrides.motion ?? pick(MOTION_IDS, random),
     autoMorph: overrides.autoMorph ?? DEFAULT_CONFIG.autoMorph,
+    autoEyes: overrides.autoEyes ?? DEFAULT_CONFIG.autoEyes,
   }
 }

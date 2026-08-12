@@ -7,23 +7,33 @@ describe('Mote Studio', () => {
     window.localStorage.clear()
   })
 
-  it('changes shape and color, then restores the default mote', () => {
+  it('changes shape, eye expression, and color, then restores defaults', () => {
     render(<App />)
 
-    const softShape = screen.getByRole('button', {
-      name: 'Soft: Organic and uneven',
+    const pebbleShape = screen.getByRole('button', {
+      name: 'Pebble: Grounded and soft',
+    })
+    const joyfulEyes = screen.getByRole('button', {
+      name: '02 Joyful: Open and buoyant',
     })
     const skyColor = screen.getByRole('button', { name: 'Sky' })
-    fireEvent.click(softShape)
+    fireEvent.click(pebbleShape)
+    fireEvent.click(joyfulEyes)
     fireEvent.click(skyColor)
 
-    expect(softShape).toHaveAttribute('aria-pressed', 'true')
+    expect(pebbleShape).toHaveAttribute('aria-pressed', 'true')
+    expect(joyfulEyes).toHaveAttribute('aria-pressed', 'true')
     expect(skyColor).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
 
     expect(
-      screen.getByRole('button', { name: 'Orb: Balanced and calm' }),
+      screen.getByRole('button', { name: 'Blob: Balanced and organic' }),
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      screen.getByRole('button', {
+        name: '00 Neutral: Balanced and available',
+      }),
     ).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Tangerine' })).toHaveAttribute(
       'aria-pressed',

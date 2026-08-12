@@ -1,8 +1,10 @@
 import { getEyeColor, normalizeHexColor, type MotionLevel } from './presets.js'
+import { eyeById, type EyeId } from './eyes.js'
 import { shapeById, type ShapeId } from './shapes.js'
 
 export type AvatarSvgOptions = {
   shapeId: ShapeId
+  eyeStyle?: EyeId
   color: string
   eyeColor?: string
   motion?: MotionLevel
@@ -66,6 +68,7 @@ const createAnimationStyle = (motion: MotionLevel, rootId: string) => {
 /** Build a portable, dependency-free SVG string. */
 export const createAvatarSvg = ({
   shapeId,
+  eyeStyle = 'neutral',
   color,
   eyeColor,
   motion = 'playful',
@@ -74,6 +77,7 @@ export const createAvatarSvg = ({
   imageDataUrl,
 }: AvatarSvgOptions): string => {
   const path = shapeById(shapeId).path
+  const eyes = eyeById(eyeStyle)
   const normalizedColor = normalizeHexColor(color)
   const normalizedEyeColor = eyeColor
     ? normalizeHexColor(eyeColor)
@@ -85,7 +89,7 @@ export const createAvatarSvg = ({
   }
 
   const suffix = hashText(
-    `${shapeId}:${normalizedColor}:${normalizedEyeColor}:${motion}:${titleText ?? ''}`,
+    `${shapeId}:${eyeStyle}:${normalizedColor}:${normalizedEyeColor}:${motion}:${titleText ?? ''}`,
   )
   const rootId = `mote-${suffix}`
   const clipId = `${rootId}-clip`
@@ -107,8 +111,8 @@ export const createAvatarSvg = ({
       ? `<image href="${escapeMarkup(imageDataUrl)}" x="48" y="48" width="224" height="224" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})" opacity=".78"/>`
       : '',
     `<g id="${rootId}-eyes" fill="${normalizedEyeColor}">`,
-    '<rect x="122" y="125" width="24" height="56" rx="12" transform="rotate(8 134 153)"/>',
-    '<rect x="177" y="125" width="24" height="56" rx="12" transform="rotate(8 189 153)"/>',
+    `<path d="${eyes.leftPath}"/>`,
+    `<path d="${eyes.rightPath}"/>`,
     '</g></g></svg>',
   ].join('')
 }

@@ -31,6 +31,21 @@ describe('Mote MCP server', () => {
       'render_mote_svg',
     ])
     expect(tools.every((tool) => tool.annotations?.readOnlyHint)).toBe(true)
+
+    const presets = await client.callTool({
+      name: 'list_mote_presets',
+      arguments: {},
+    })
+    expect(presets.structuredContent).toMatchObject({
+      shapes: expect.arrayContaining([
+        expect.objectContaining({ id: 'blob' }),
+        expect.objectContaining({ id: 'leaf' }),
+      ]),
+      eyes: expect.arrayContaining([
+        expect.objectContaining({ id: 'neutral', referenceIndex: 0 }),
+        expect.objectContaining({ id: 'spark', referenceIndex: 24 }),
+      ]),
+    })
   })
 
   it('returns reproducible structured output for a stable seed', async () => {
@@ -49,13 +64,16 @@ describe('Mote MCP server', () => {
       seed: 'quiet-signal',
       mimeType: 'image/svg+xml',
       animated: true,
+      config: {
+        eyeStyle: expect.any(String),
+      },
     })
   })
 
   it('rejects invalid colors before a tool handler runs', async () => {
     const result = await client.callTool({
       name: 'render_mote_svg',
-      arguments: { shapeId: 'orb', color: 'orange' },
+      arguments: { shapeId: 'blob', color: 'orange' },
     })
     expect(result.isError).toBe(true)
   })

@@ -1,9 +1,16 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { memo, useEffect, useId, useState } from 'react'
-import { shapeById, type MotionLevel, type ShapeId } from '@mote-studio/core'
+import {
+  eyeById,
+  shapeById,
+  type EyeId,
+  type MotionLevel,
+  type ShapeId,
+} from '@mote-studio/core'
 
 type MoteAvatarProps = {
   shapeId: ShapeId
+  eyeStyle: EyeId
   color: string
   eyeColor: string
   motionLevel: MotionLevel
@@ -93,6 +100,7 @@ const OrbitBurst = memo(function OrbitBurst({ token }: { token: number }) {
 
 export const MoteAvatar = memo(function MoteAvatar({
   shapeId,
+  eyeStyle,
   color,
   eyeColor,
   motionLevel,
@@ -105,7 +113,9 @@ export const MoteAvatar = memo(function MoteAvatar({
   const [autoBlink, setAutoBlink] = useState(0)
   const clipId = useId().replaceAll(':', '')
   const path = shapeById(shapeId).path
+  const eyes = eyeById(eyeStyle)
   const preset = MOTION_PRESETS[motionLevel]
+  const morphTransition = shouldReduceMotion ? { duration: 0 } : ALIVE_SPRING
 
   useEffect(() => {
     if (shouldReduceMotion) return
@@ -143,7 +153,7 @@ export const MoteAvatar = memo(function MoteAvatar({
           <motion.path
             initial={false}
             animate={{ d: path }}
-            transition={ALIVE_SPRING}
+            transition={morphTransition}
           />
         </clipPath>
       </defs>
@@ -156,7 +166,7 @@ export const MoteAvatar = memo(function MoteAvatar({
         initial={false}
         animate={{ d: path, fill: color }}
         transition={{
-          d: ALIVE_SPRING,
+          d: morphTransition,
           fill: { duration: 0.2, ease: EASE_OUT },
         }}
       />
@@ -195,37 +205,27 @@ export const MoteAvatar = memo(function MoteAvatar({
           }}
           transition={ALIVE_SPRING}
         >
-          <motion.rect
-            x="122"
-            y="125"
-            width="24"
-            height="56"
-            rx="12"
+          <motion.path
+            initial={false}
             animate={{
+              d: eyes.leftPath,
               fill: eyeColor,
-              transform: `rotate(${8 + gaze.x * 3}deg)`,
             }}
             transition={{
+              d: morphTransition,
               fill: { duration: 0.2, ease: EASE_OUT },
-              transform: ALIVE_SPRING,
             }}
-            style={{ transformOrigin: '134px 153px' }}
           />
-          <motion.rect
-            x="177"
-            y="125"
-            width="24"
-            height="56"
-            rx="12"
+          <motion.path
+            initial={false}
             animate={{
+              d: eyes.rightPath,
               fill: eyeColor,
-              transform: `rotate(${8 + gaze.x * 3}deg)`,
             }}
             transition={{
+              d: morphTransition,
               fill: { duration: 0.2, ease: EASE_OUT },
-              transform: ALIVE_SPRING,
             }}
-            style={{ transformOrigin: '189px 153px' }}
           />
         </motion.g>
       </motion.g>

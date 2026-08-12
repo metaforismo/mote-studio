@@ -1,6 +1,6 @@
 # Mote Studio
 
-Mote Studio is a local-first character lab for designing tiny animated SVG characters. Pick a silhouette and color, generate a combination, add an image texture, then export the result as SVG or PNG.
+Mote Studio is a local-first character lab for designing tiny animated SVG characters. Pick a silhouette, eye expression, and color; generate a combination; add an image texture; then export the result as SVG or PNG.
 
 The interface was built from scratch around a dark tool dock and a bright live canvas. Its motion language is inspired by playful shape studies: spring-based morphs, natural blinking, pointer gaze, idle drift, and short orbit bursts that connect state changes.
 
@@ -12,11 +12,13 @@ The interface was built from scratch around a dark tool dock and a bright live c
 
 ## Features
 
-- Eight compatible SVG silhouettes with smooth path morphing
+- Eighteen compatible SVG silhouettes with smooth path morphing
+- Twenty-five morphable eye expressions reconstructed from the technical reference
 - Eleven contrast-aware colors and adaptive eye color
 - Calm, playful, and kinetic motion personalities
 - Automatic morph cycle with a visible pause control
-- Pointer-following gaze and click-to-blink feedback
+- Optional Living Eyes cadence tied to the selected motion personality
+- Pointer-following gaze, spring-based expression changes, and click-to-blink feedback
 - Local image textures with drag-and-drop and inline validation
 - Deterministic SVG and 1024 × 1024 PNG export
 - Local MCP server for agent-generated, reproducible Motes
@@ -66,13 +68,13 @@ npm run mcp:inspect  # Open the MCP Inspector against the local server
 
 ## Use with an AI agent
 
-The repository includes a local [Model Context Protocol](https://modelcontextprotocol.io/) server. It exposes the same shape, palette, motion, and SVG-rendering logic used by the web app, so an agent can create a Mote for another project without scraping the interface.
+The repository includes a local [Model Context Protocol](https://modelcontextprotocol.io/) server. It exposes the same silhouette, eye-expression, palette, motion, and SVG-rendering logic used by the web app, so an agent can create a Mote for another project without scraping the interface.
 
 Available tools:
 
 | Tool                | Purpose                                                                      |
 | ------------------- | ---------------------------------------------------------------------------- |
-| `list_mote_presets` | Discover the supported shapes, colors, motion styles, and defaults           |
+| `list_mote_presets` | Discover the supported shapes, eyes, colors, motion styles, and defaults     |
 | `create_mote`       | Generate a reproducible configuration and portable SVG from an optional seed |
 | `render_mote_svg`   | Render an exact configuration as dependency-free inline SVG                  |
 
@@ -111,9 +113,9 @@ docs/screenshots README captures generated from the running app
 
 ## How morphing works
 
-Every silhouette resolves to a closed ring of 16 points in `packages/core`. The path generator converts each ring to the same number and order of cubic Bézier commands. Because the SVG command topology stays compatible, Motion can interpolate the `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes.
+Every silhouette and eye resolves to a closed ring of 16 points in `packages/core`. The path generator converts each ring to the same number and order of cubic Bézier commands. Because the SVG command topology stays compatible, Motion can interpolate each `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes.
 
-Ambient movement is isolated from path morphing, eye gaze, blinking, and orbit effects. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
+Ambient movement is isolated from body morphing, expression morphing, gaze, blinking, and orbit effects. User-selected eye changes use an interruptible spring; automatic expression changes run at a restrained cadence and stop under `prefers-reduced-motion`. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
 
 ## Accessibility
 

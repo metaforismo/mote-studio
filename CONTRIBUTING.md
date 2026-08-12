@@ -14,7 +14,7 @@ Keep pull requests small enough to review visually and technically. Describe the
 
 ## Shape presets
 
-All morphable body paths must keep the same command topology. Add new presets through the point-ring helpers in `packages/core/src/shapes.ts`, then extend the path compatibility tests.
+All morphable body and eye paths must keep the same command topology. Add silhouettes through the point-ring helpers in `packages/core/src/shapes.ts`, eye expressions through `packages/core/src/eyes.ts`, then extend the path compatibility tests.
 
 ## MCP changes
 
