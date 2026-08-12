@@ -113,7 +113,7 @@ docs/screenshots README captures generated from the running app
 
 ## How morphing works
 
-Every silhouette and eye resolves to a closed ring of 16 points in `packages/core`. The path generator converts each ring to the same number and order of cubic Bézier commands. Because the SVG command topology stays compatible, Motion can interpolate each `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes.
+Every silhouette resolves to a closed ring of 24 points and every eye to a 16-point ring in `packages/core`. The path generator converts each family to the same number and order of cubic Bézier commands. Because each SVG command topology stays compatible, Motion can interpolate every `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes. Hand-drawn presets such as Braincloud and Teardrop are redistributed along their perimeter before rendering, preserving their lobes and pointed profiles while keeping morphs safe.
 
 Ambient movement is isolated from body morphing, expression morphing, gaze, blinking, and orbit effects. User-selected eye changes use an interruptible spring; automatic expression changes run at a restrained cadence and stop under `prefers-reduced-motion`. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
 

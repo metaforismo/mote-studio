@@ -20,7 +20,7 @@ describe('Mote core', () => {
     for (const shape of SHAPES) {
       expect(shape.path).toMatch(/^M /)
       expect(shape.path).toMatch(/ Z$/)
-      expect(shape.path.match(/C /g)).toHaveLength(16)
+      expect(shape.path.match(/C /g)).toHaveLength(24)
       expect(shape.path).not.toContain('NaN')
     }
   })

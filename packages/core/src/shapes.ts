@@ -34,7 +34,7 @@ export type ShapeDefinition = {
 }
 
 const CENTER = 160
-const POINT_COUNT = 16
+const POINT_COUNT = 24
 
 const sample = (factory: (angle: number, index: number) => Point): Point[] =>
   Array.from({ length: POINT_COUNT }, (_, index) => {
@@ -76,6 +76,57 @@ const radial = (
 const fromCoordinates = (
   coordinates: ReadonlyArray<readonly [number, number]>,
 ): Point[] => coordinates.map(([x, y]) => ({ x, y }))
+
+/**
+ * Redistributes hand-drawn rings to the shared body topology while retaining
+ * the silhouette's corners and lobes. This lets expressive reference shapes
+ * morph into the procedural presets without crossfading.
+ */
+const resampleClosedRing = (
+  points: Point[],
+  targetCount = POINT_COUNT,
+): Point[] => {
+  if (points.length < 3) {
+    throw new Error('A closed curve requires at least three points')
+  }
+
+  const segments = points.map((point, index) => {
+    const next = points[(index + 1) % points.length]
+    if (!next) throw new Error('The point ring is incomplete')
+    return Math.hypot(next.x - point.x, next.y - point.y)
+  })
+  const perimeter = segments.reduce((total, length) => total + length, 0)
+
+  return Array.from({ length: targetCount }, (_, sampleIndex) => {
+    const targetDistance = (sampleIndex / targetCount) * perimeter
+    let coveredDistance = 0
+
+    for (let index = 0; index < points.length; index += 1) {
+      const point = points[index]
+      const next = points[(index + 1) % points.length]
+      const segmentLength = segments[index]
+
+      if (!point || !next || segmentLength === undefined) {
+        throw new Error('The point ring is incomplete')
+      }
+
+      if (coveredDistance + segmentLength >= targetDistance) {
+        const progress =
+          segmentLength === 0
+            ? 0
+            : (targetDistance - coveredDistance) / segmentLength
+        return {
+          x: point.x + (next.x - point.x) * progress,
+          y: point.y + (next.y - point.y) * progress,
+        }
+      }
+
+      coveredDistance += segmentLength
+    }
+
+    return points[0] as Point
+  })
+}
 
 const round = (value: number) => Number(value.toFixed(2))
 
@@ -192,22 +243,26 @@ const pointSets: Record<ShapeId, Point[]> = {
     [137, 65],
   ]),
   wedge: fromCoordinates([
-    [160, 49],
-    [177, 71],
-    [197, 103],
-    [219, 142],
-    [241, 184],
-    [247, 216],
-    [229, 237],
-    [194, 244],
+    [160, 48],
+    [173, 64],
+    [188, 88],
+    [205, 116],
+    [222, 146],
+    [239, 178],
+    [249, 205],
+    [245, 226],
+    [228, 239],
+    [199, 244],
     [160, 245],
-    [126, 244],
-    [91, 237],
-    [73, 216],
-    [79, 184],
-    [101, 142],
-    [123, 103],
-    [143, 71],
+    [121, 244],
+    [92, 239],
+    [75, 226],
+    [71, 205],
+    [81, 178],
+    [98, 146],
+    [115, 116],
+    [132, 88],
+    [147, 64],
   ]),
   shield: fromCoordinates([
     [160, 45],
@@ -246,24 +301,69 @@ const pointSets: Record<ShapeId, Point[]> = {
     [87, 91],
   ]),
   arch: superellipse(78, 121, 5.4),
-  cloud: radial(106, 91, (angle) => 1 + 0.1 * Math.sin(angle * 5 - 0.4)),
+  cloud: fromCoordinates([
+    [160, 76],
+    [176, 65],
+    [194, 67],
+    [205, 82],
+    [220, 85],
+    [237, 79],
+    [252, 89],
+    [256, 107],
+    [249, 122],
+    [262, 137],
+    [263, 154],
+    [252, 168],
+    [258, 185],
+    [247, 200],
+    [228, 203],
+    [215, 197],
+    [199, 211],
+    [181, 213],
+    [166, 204],
+    [150, 215],
+    [131, 211],
+    [119, 199],
+    [100, 207],
+    [82, 199],
+    [77, 183],
+    [63, 174],
+    [57, 157],
+    [67, 143],
+    [58, 128],
+    [62, 110],
+    [77, 100],
+    [91, 101],
+    [101, 86],
+    [118, 80],
+    [132, 88],
+    [143, 74],
+  ]),
   teardrop: fromCoordinates([
-    [160, 44],
-    [178, 68],
-    [198, 97],
-    [218, 128],
-    [228, 160],
-    [224, 191],
-    [206, 216],
-    [184, 231],
-    [160, 236],
-    [136, 231],
-    [114, 216],
-    [96, 191],
-    [92, 160],
-    [102, 128],
-    [122, 97],
-    [142, 68],
+    [160, 38],
+    [170, 52],
+    [184, 73],
+    [200, 96],
+    [215, 120],
+    [228, 146],
+    [236, 171],
+    [237, 193],
+    [229, 213],
+    [214, 229],
+    [195, 241],
+    [174, 247],
+    [151, 248],
+    [129, 244],
+    [109, 234],
+    [93, 219],
+    [84, 200],
+    [82, 180],
+    [87, 157],
+    [97, 134],
+    [110, 112],
+    [124, 88],
+    [139, 62],
+    [152, 43],
   ]),
   leaf: fromCoordinates([
     [223, 53],
@@ -304,15 +404,18 @@ const metadata: Record<
   shield: { label: 'Shield', description: 'Protective and confident' },
   dome: { label: 'Dome', description: 'Low and relaxed' },
   arch: { label: 'Arch', description: 'Tall and focused' },
-  cloud: { label: 'Cloud', description: 'Playful and elastic' },
-  teardrop: { label: 'Teardrop', description: 'Warm and expressive' },
+  cloud: {
+    label: 'Braincloud',
+    description: 'Lobed like a little thought cloud',
+  },
+  teardrop: { label: 'Teardrop', description: 'Pointed, warm and expressive' },
   leaf: { label: 'Leaf', description: 'Directional and lively' },
 }
 
 export const SHAPES: ShapeDefinition[] = SHAPE_IDS.map((id) => ({
   id,
   ...metadata[id],
-  path: closedCurvePath(pointSets[id]),
+  path: closedCurvePath(resampleClosedRing(pointSets[id])),
 }))
 
 export const shapeById = (id: ShapeId): ShapeDefinition => {
