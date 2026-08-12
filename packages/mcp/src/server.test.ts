@@ -41,6 +41,10 @@ describe('Mote MCP server', () => {
         expect.objectContaining({ id: 'blob' }),
         expect.objectContaining({ id: 'cloud', label: 'Cloud' }),
         expect.objectContaining({ id: 'brain', label: 'Brain' }),
+        expect.objectContaining({ id: 'leaf', label: 'Leaf' }),
+      ]),
+      states: expect.arrayContaining([
+        expect.objectContaining({ id: 'thinking', eyePool: expect.any(Array) }),
       ]),
       eyes: expect.arrayContaining([
         expect.objectContaining({ id: 'neutral', referenceIndex: 0 }),
@@ -67,6 +71,8 @@ describe('Mote MCP server', () => {
       animated: true,
       config: {
         eyeStyle: expect.any(String),
+        state: expect.any(String),
+        face: expect.objectContaining({ perspective: expect.any(Number) }),
       },
     })
   })

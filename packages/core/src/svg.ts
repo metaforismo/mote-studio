@@ -1,5 +1,12 @@
 import { getEyeColor, normalizeHexColor, type MotionLevel } from './presets.js'
 import { eyeById, type EyeId } from './eyes.js'
+import {
+  DEFAULT_FACE_RIG,
+  normalizeFaceRig,
+  projectEye,
+  type AvatarStateId,
+  type FaceRigConfig,
+} from './face-rig.js'
 import { shapeById, type ShapeId } from './shapes.js'
 
 export type AvatarSvgOptions = {
@@ -8,6 +15,8 @@ export type AvatarSvgOptions = {
   color: string
   eyeColor?: string
   motion?: MotionLevel
+  state?: AvatarStateId
+  face?: Partial<FaceRigConfig>
   animated?: boolean
   title?: string
   imageDataUrl?: string | null
@@ -72,12 +81,17 @@ export const createAvatarSvg = ({
   color,
   eyeColor,
   motion = 'playful',
+  state = 'idle',
+  face = DEFAULT_FACE_RIG,
   animated = false,
   title,
   imageDataUrl,
 }: AvatarSvgOptions): string => {
   const path = shapeById(shapeId).path
   const eyes = eyeById(eyeStyle)
+  const normalizedFace = normalizeFaceRig(face)
+  const leftProjection = projectEye(eyes.leftCenter, normalizedFace)
+  const rightProjection = projectEye(eyes.rightCenter, normalizedFace)
   const normalizedColor = normalizeHexColor(color)
   const normalizedEyeColor = eyeColor
     ? normalizeHexColor(eyeColor)
@@ -89,7 +103,7 @@ export const createAvatarSvg = ({
   }
 
   const suffix = hashText(
-    `${shapeId}:${eyeStyle}:${normalizedColor}:${normalizedEyeColor}:${motion}:${titleText ?? ''}`,
+    `${shapeId}:${eyeStyle}:${normalizedColor}:${normalizedEyeColor}:${motion}:${state}:${JSON.stringify(normalizedFace)}:${titleText ?? ''}`,
   )
   const rootId = `mote-${suffix}`
   const clipId = `${rootId}-clip`
@@ -111,8 +125,8 @@ export const createAvatarSvg = ({
       ? `<image href="${escapeMarkup(imageDataUrl)}" x="48" y="48" width="224" height="224" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})" opacity=".78"/>`
       : '',
     `<g id="${rootId}-eyes" fill="${normalizedEyeColor}">`,
-    `<path d="${eyes.leftPath}"/>`,
-    `<path d="${eyes.rightPath}"/>`,
+    `<g opacity="${leftProjection.opacity}" transform="${leftProjection.svgTransform}"><path d="${eyes.leftPath}"/></g>`,
+    `<g opacity="${rightProjection.opacity}" transform="${rightProjection.svgTransform}"><path d="${eyes.rightPath}"/></g>`,
     '</g></g></svg>',
   ].join('')
 }

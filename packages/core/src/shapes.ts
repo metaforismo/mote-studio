@@ -12,6 +12,7 @@ export const SHAPE_IDS = [
   'teardrop',
   'dome',
   'bean',
+  'leaf',
 ] as const
 
 export type ShapeId = (typeof SHAPE_IDS)[number]
@@ -29,7 +30,7 @@ export type ShapeDefinition = {
 }
 
 const CENTER = 160
-const POINT_COUNT = 24
+const POINT_COUNT = 32
 
 const sample = (factory: (angle: number, index: number) => Point): Point[] =>
   Array.from({ length: POINT_COUNT }, (_, index) => {
@@ -54,30 +55,6 @@ const superellipse = (
         Math.sign(Math.sin(angle)) *
         Math.abs(Math.sin(angle)) ** (2 / power),
   }))
-
-const wobblySuperellipse = (
-  radiusX: number,
-  radiusY: number,
-  power: number,
-  modulation: (angle: number) => number,
-): Point[] =>
-  sample((angle) => {
-    const radius = modulation(angle)
-    return {
-      x:
-        CENTER +
-        radiusX *
-          Math.sign(Math.cos(angle)) *
-          Math.abs(Math.cos(angle)) ** (2 / power) *
-          radius,
-      y:
-        CENTER +
-        radiusY *
-          Math.sign(Math.sin(angle)) *
-          Math.abs(Math.sin(angle)) ** (2 / power) *
-          radius,
-    }
-  })
 
 const radial = (
   radiusX: number,
@@ -267,53 +244,102 @@ const pointSets: Record<ShapeId, Point[]> = {
     [147, 64],
   ]),
   cloud: fromCoordinates([
-    [160, 60],
-    [181, 61],
-    [198, 72],
-    [208, 89],
-    [222, 83],
-    [240, 86],
-    [253, 98],
-    [261, 112],
-    [263, 128],
-    [278, 133],
-    [289, 145],
-    [293, 162],
-    [290, 179],
-    [280, 194],
-    [266, 205],
-    [247, 213],
-    [224, 216],
-    [199, 216],
-    [174, 216],
-    [149, 216],
-    [124, 216],
-    [99, 216],
-    [76, 214],
-    [59, 207],
-    [46, 194],
-    [40, 178],
-    [41, 162],
-    [48, 147],
-    [60, 136],
-    [63, 117],
-    [74, 102],
-    [89, 94],
-    [105, 94],
-    [118, 100],
-    [121, 82],
-    [136, 68],
-    [151, 62],
+    [160, 51],
+    [181, 52],
+    [200, 61],
+    [214, 76],
+    [221, 94],
+    [222, 103],
+    [234, 96],
+    [250, 95],
+    [265, 102],
+    [276, 115],
+    [281, 132],
+    [281, 139],
+    [290, 143],
+    [298, 153],
+    [302, 166],
+    [301, 181],
+    [295, 194],
+    [284, 205],
+    [270, 212],
+    [252, 216],
+    [226, 217],
+    [194, 217],
+    [160, 217],
+    [126, 217],
+    [94, 217],
+    [68, 216],
+    [50, 212],
+    [36, 205],
+    [25, 194],
+    [19, 181],
+    [18, 166],
+    [22, 153],
+    [30, 143],
+    [39, 139],
+    [39, 132],
+    [44, 115],
+    [55, 102],
+    [70, 95],
+    [86, 96],
+    [98, 103],
+    [99, 94],
+    [106, 76],
+    [120, 61],
+    [139, 52],
   ]),
-  brain: wobblySuperellipse(
-    118,
-    78,
-    4,
-    (angle) =>
-      1 +
-      0.075 * Math.sin(angle * 5 + Math.PI) +
-      0.025 * Math.sin(angle * 3 + 0.4),
-  ),
+  brain: fromCoordinates([
+    [160, 82],
+    [177, 73],
+    [197, 76],
+    [211, 88],
+    [216, 101],
+    [229, 93],
+    [247, 95],
+    [260, 106],
+    [264, 121],
+    [280, 119],
+    [294, 129],
+    [299, 145],
+    [295, 160],
+    [286, 169],
+    [297, 181],
+    [298, 195],
+    [289, 207],
+    [273, 213],
+    [258, 210],
+    [249, 222],
+    [234, 230],
+    [218, 228],
+    [207, 220],
+    [194, 231],
+    [177, 235],
+    [161, 228],
+    [147, 235],
+    [130, 232],
+    [118, 222],
+    [105, 230],
+    [88, 227],
+    [77, 215],
+    [61, 216],
+    [47, 208],
+    [41, 194],
+    [45, 181],
+    [34, 170],
+    [29, 155],
+    [34, 140],
+    [47, 130],
+    [43, 116],
+    [50, 102],
+    [64, 94],
+    [80, 96],
+    [87, 82],
+    [101, 73],
+    [118, 75],
+    [130, 85],
+    [142, 75],
+  ]),
   teardrop: fromCoordinates([
     [160, 38],
     [170, 52],
@@ -370,6 +396,31 @@ const pointSets: Record<ShapeId, Point[]> = {
     (angle) =>
       1 + 0.09 * Math.sin(angle - 0.55) - 0.08 * Math.cos(angle * 2 + 0.35),
   ),
+  leaf: fromCoordinates([
+    [258, 70],
+    [254, 95],
+    [246, 121],
+    [234, 148],
+    [219, 174],
+    [201, 198],
+    [181, 217],
+    [159, 229],
+    [136, 234],
+    [114, 230],
+    [95, 220],
+    [80, 204],
+    [70, 185],
+    [66, 164],
+    [69, 143],
+    [79, 124],
+    [94, 108],
+    [113, 96],
+    [135, 87],
+    [159, 80],
+    [185, 75],
+    [211, 72],
+    [236, 70],
+  ]),
 }
 
 const metadata: Record<
@@ -392,6 +443,7 @@ const metadata: Record<
   brain: { label: 'Brain', description: 'Lobed and playfully thoughtful' },
   teardrop: { label: 'Teardrop', description: 'Pointed, warm and expressive' },
   bean: { label: 'Bean', description: 'Asymmetric and friendly' },
+  leaf: { label: 'Leaf', description: 'Directional, soft and lightly poised' },
 }
 
 export const SHAPES: ShapeDefinition[] = SHAPE_IDS.map((id) => ({

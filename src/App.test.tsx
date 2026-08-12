@@ -48,11 +48,27 @@ describe('Mote Studio', () => {
     botTab.focus()
     fireEvent.keyDown(botTab, { key: 'ArrowRight' })
 
-    expect(screen.getByRole('tab', { name: 'generate' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: 'rig' })).toHaveAttribute(
       'aria-selected',
       'true',
     )
-    expect(await screen.findByText('Motion character')).toBeInTheDocument()
+    expect(await screen.findByText('Procedural face rig')).toBeInTheDocument()
+  })
+
+  it('applies a state pose and exposes continuous face controls', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('tab', { name: 'rig' }))
+    fireEvent.click(screen.getByRole('button', { name: /Thinking/ }))
+
+    expect(screen.getByText('Thinking state selected')).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Head turn' })).toHaveValue('-14')
+
+    fireEvent.change(screen.getByRole('slider', { name: 'Eye spacing' }), {
+      target: { value: '1.31' },
+    })
+    expect(screen.getByRole('slider', { name: 'Eye spacing' })).toHaveValue(
+      '1.31',
+    )
   })
 
   it('offers the reference-derived face turn without background effects', () => {

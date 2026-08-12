@@ -22,7 +22,7 @@ export function ShapePicker({
       <legend className="mb-3 flex w-full items-center justify-between gap-3 text-[0.68rem] font-semibold tracking-[0.18em] text-[#8f9188] uppercase">
         <span>Shape</span>
         <span className="tracking-normal text-[#686b63] normal-case">
-          13 silhouettes
+          14 silhouettes
         </span>
       </legend>
       <div className="grid grid-cols-5 gap-2 sm:grid-cols-7">

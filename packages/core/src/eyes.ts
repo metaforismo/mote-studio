@@ -37,6 +37,8 @@ export type EyeDefinition = {
   description: string
   leftPath: string
   rightPath: string
+  leftCenter: { x: number; y: number }
+  rightCenter: { x: number; y: number }
 }
 
 type EyeGeometry = {
@@ -185,6 +187,8 @@ export const EYES: EyeDefinition[] = EYE_IDS.map((id, referenceIndex) => ({
   ...metadata[id],
   leftPath: eyePath(specs[id][0]),
   rightPath: eyePath(specs[id][1]),
+  leftCenter: { x: specs[id][0].cx, y: specs[id][0].cy },
+  rightCenter: { x: specs[id][1].cx, y: specs[id][1].cy },
 }))
 
 export const eyeById = (id: EyeId): EyeDefinition => {

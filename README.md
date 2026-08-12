@@ -2,7 +2,7 @@
 
 Mote Studio is a local-first character lab for designing tiny animated SVG characters. Pick a silhouette, eye expression, and color; generate a combination; add an image texture; then export the result as SVG or PNG.
 
-The interface was built from scratch around a dark tool dock and a bright live canvas. Its motion language is inspired by playful shape studies: spring-based morphs, natural blinking, pointer gaze, idle drift, and an explicit spherical face-turn demonstration.
+The interface was built from scratch around a dark tool dock and a bright live canvas. Its motion language is inspired by playful shape studies: spring-based morphs, natural blinking and independent winks, pointer gaze, idle drift, and a continuously editable spherical face rig.
 
 ![Mote Studio on desktop](docs/screenshots/mote-studio-desktop.png)
 
@@ -12,14 +12,14 @@ The interface was built from scratch around a dark tool dock and a bright live c
 
 ## Features
 
-- Thirteen curated SVG silhouettes with smooth path morphing
+- Fourteen curated SVG silhouettes with smooth path morphing
 - Twenty-five morphable eye expressions reconstructed from the technical reference
 - Eleven contrast-aware colors and adaptive eye color
 - Calm, playful, and kinetic motion personalities
 - Automatic morph cycle with a visible pause control
-- Optional Living Eyes cadence tied to the selected motion personality
-- Pointer-following gaze, spring-based expression changes, and click-to-blink feedback
-- A reference-derived face-turn demo that projects each eye around a virtual sphere
+- Eight data-driven states with expression pools and state-specific cadence
+- Pointer-following gaze, spring-based expression changes, click-to-blink, and independent winks
+- A procedural face rig with head turn, gaze, eye spacing, scale, local rotation, height, and perspective controls
 - Local image textures with drag-and-drop and inline validation
 - Deterministic SVG and 1024 × 1024 PNG export
 - Local MCP server for agent-generated, reproducible Motes
@@ -69,15 +69,15 @@ npm run mcp:inspect  # Open the MCP Inspector against the local server
 
 ## Use with an AI agent
 
-The repository includes a local [Model Context Protocol](https://modelcontextprotocol.io/) server. It exposes the same silhouette, eye-expression, palette, motion, and SVG-rendering logic used by the web app, so an agent can create a Mote for another project without scraping the interface.
+The repository includes a local [Model Context Protocol](https://modelcontextprotocol.io/) server. It exposes the same silhouette, eye-expression, state, palette, procedural rig, motion, and SVG-rendering logic used by the web app, so an agent can create a Mote for another project without scraping the interface.
 
 Available tools:
 
-| Tool                | Purpose                                                                      |
-| ------------------- | ---------------------------------------------------------------------------- |
-| `list_mote_presets` | Discover the supported shapes, eyes, colors, motion styles, and defaults     |
-| `create_mote`       | Generate a reproducible configuration and portable SVG from an optional seed |
-| `render_mote_svg`   | Render an exact configuration as dependency-free inline SVG                  |
+| Tool                | Purpose                                                                       |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `list_mote_presets` | Discover shapes, eyes, states, rig poses, colors, motion styles, and defaults |
+| `create_mote`       | Generate a reproducible configuration and portable SVG from an optional seed  |
+| `render_mote_svg`   | Render an exact configuration as dependency-free inline SVG                   |
 
 Build the server once, then register its absolute path with Codex:
 
@@ -114,11 +114,11 @@ docs/screenshots README captures generated from the running app
 
 ## How morphing works
 
-Every silhouette resolves to a closed ring of 24 points and every eye to a 16-point ring in `packages/core`. The path generator converts each family to the same number and order of cubic Bézier commands. Because each SVG command topology stays compatible, Motion can interpolate every `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes. Hand-drawn presets such as Cloud and Teardrop are redistributed along their perimeter before rendering, preserving their lobes and pointed profiles while keeping morphs safe.
+Every silhouette resolves to a closed ring of 32 points and every eye to a 16-point ring in `packages/core`. The path generator converts each family to the same number and order of cubic Bézier commands. Because each SVG command topology stays compatible, Motion can interpolate every `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes. Hand-drawn presets such as Cloud, Brain, Teardrop, and Leaf are redistributed along their perimeter before rendering, preserving lobes and pointed profiles while keeping morphs safe.
 
-The thirteen-shape set was redrawn as code-native geometry after reference-only silhouette studies. Cloud and Brain are deliberately separate: Cloud has a calm base and a clean three-lobe crown, while Brain stays asymmetric and lobed around its full perimeter. No generated bitmap is included in the application, exports, or package output.
+The fourteen-shape set was redrawn as code-native geometry after reference-only silhouette studies. Cloud now uses a dominant central crown, soft side lobes, and a grounded baseline; Brain is a separate asymmetric cortical silhouette with edge lobes rather than a wavy capsule. No generated bitmap is included in the application, exports, or package output.
 
-Ambient movement is isolated from body morphing, expression morphing, gaze, blinking, and face turning. The turn demo follows the supplied reference's spherical projection: each eye travels around a virtual face, compresses with depth, and disappears only when it passes behind the silhouette. User-selected eye changes use an interruptible spring; automatic expression changes run at a restrained cadence and stop under `prefers-reduced-motion`. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
+Ambient movement is isolated from body morphing, expression morphing, gaze, blinking, and face turning. The rig follows the supplied reference's spherical projection: each eye travels around a virtual face, compresses with depth, and disappears only when it passes behind the silhouette. All eight rig values are continuous and retarget interruptible springs from the pose already on screen. Twenty-five contours and data-driven state pools make the expression space extensible without adding animation branches. Automatic expression changes run at a restrained, state-specific cadence and stop under `prefers-reduced-motion`. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
 
 ## Accessibility
 

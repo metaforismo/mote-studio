@@ -1,17 +1,27 @@
 import {
+  animate,
   motion,
   useMotionValue,
   useReducedMotion,
+  useSpring,
   useTransform,
+  type MotionValue,
 } from 'motion/react'
 import { memo, useEffect, useId, useState } from 'react'
 import {
+  avatarStateById,
   eyeById,
+  projectEye,
   shapeById,
+  type AvatarStateId,
   type EyeId,
+  type FaceRigConfig,
   type MotionLevel,
   type ShapeId,
 } from '@mote-studio/core'
+
+export type WinkSide = 'left' | 'right'
+export type WinkTokens = Record<WinkSide, number>
 
 type MoteAvatarProps = {
   shapeId: ShapeId
@@ -19,8 +29,11 @@ type MoteAvatarProps = {
   color: string
   eyeColor: string
   motionLevel: MotionLevel
+  state: AvatarStateId
+  faceRig: FaceRigConfig
   gaze: { x: number; y: number }
   blinkToken: number
+  winkTokens: WinkTokens
   turnToken: number
   imageDataUrl?: string | null
 }
@@ -59,25 +72,66 @@ const MOTION_PRESETS: Record<
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const EASE_IN_OUT = [0.77, 0, 0.175, 1] as const
-const ALIVE_SPRING = { type: 'spring', duration: 0.5, bounce: 0.2 } as const
+const MORPH_SPRING = { type: 'spring', duration: 0.5, bounce: 0.2 } as const
+const RIG_SPRING = { stiffness: 260, damping: 28, mass: 0.72 } as const
 
-const FACE_CENTER_X = 160
-const FACE_RADIUS = 108
-
-const projectEye = (baseX: number, turnDegrees: number) => {
-  const offset = baseX - FACE_CENTER_X
-  const baseLongitude = Math.asin(offset / FACE_RADIUS)
-  const longitude = baseLongitude + (turnDegrees * Math.PI) / 180
-  const depth = Math.cos(longitude)
-  const perspective =
-    Math.max(depth, 0.02) / Math.max(Math.cos(baseLongitude), 0.02)
-  const projectedX = FACE_CENTER_X + FACE_RADIUS * Math.sin(longitude)
-
-  return {
-    opacity: depth > 0.02 ? 1 : 0,
-    transform: `translate3d(${projectedX - baseX}px, 0, 0) scaleX(${perspective})`,
-  }
+const useRigSpring = (target: number) => {
+  const spring = useSpring(target, RIG_SPRING)
+  useEffect(() => spring.set(target), [spring, target])
+  return spring
 }
+
+type RigMotionValues = {
+  gazeX: MotionValue<number>
+  gazeY: MotionValue<number>
+  turn: MotionValue<number>
+  demoTurn: MotionValue<number>
+  eyeSpacing: MotionValue<number>
+  eyeScale: MotionValue<number>
+  eyeRotation: MotionValue<number>
+  eyeOffsetY: MotionValue<number>
+  perspective: MotionValue<number>
+}
+
+const projectionTransform = (
+  values: number[],
+  center: { x: number; y: number },
+) => {
+  const [
+    gazeX = 0,
+    gazeY = 0,
+    turn = 0,
+    demoTurn = 0,
+    eyeSpacing = 1,
+    eyeScale = 1,
+    eyeRotation = 0,
+    eyeOffsetY = 0,
+    perspective = 1,
+  ] = values
+
+  return projectEye(center, {
+    gazeX,
+    gazeY,
+    turn: turn + demoTurn,
+    eyeSpacing,
+    eyeScale,
+    eyeRotation,
+    eyeOffsetY,
+    perspective,
+  })
+}
+
+const rigInputs = (values: RigMotionValues) => [
+  values.gazeX,
+  values.gazeY,
+  values.turn,
+  values.demoTurn,
+  values.eyeSpacing,
+  values.eyeScale,
+  values.eyeRotation,
+  values.eyeOffsetY,
+  values.perspective,
+]
 
 export const MoteAvatar = memo(function MoteAvatar({
   shapeId,
@@ -85,35 +139,56 @@ export const MoteAvatar = memo(function MoteAvatar({
   color,
   eyeColor,
   motionLevel,
+  state,
+  faceRig,
   gaze,
   blinkToken,
+  winkTokens,
   turnToken,
   imageDataUrl,
 }: MoteAvatarProps) {
   const shouldReduceMotion = useReducedMotion()
   const [autoBlink, setAutoBlink] = useState(0)
-  const faceTurn = useMotionValue(0)
-  const leftTurnTransform = useTransform(
-    faceTurn,
-    (degrees) => projectEye(134, degrees).transform,
-  )
-  const rightTurnTransform = useTransform(
-    faceTurn,
-    (degrees) => projectEye(189, degrees).transform,
-  )
-  const leftTurnOpacity = useTransform(
-    faceTurn,
-    (degrees) => projectEye(134, degrees).opacity,
-  )
-  const rightTurnOpacity = useTransform(
-    faceTurn,
-    (degrees) => projectEye(189, degrees).opacity,
-  )
+  const demoTurn = useMotionValue(0)
+  const rigValues: RigMotionValues = {
+    gazeX: useRigSpring(faceRig.gazeX + gaze.x * 0.55),
+    gazeY: useRigSpring(faceRig.gazeY + gaze.y * 0.55),
+    turn: useRigSpring(faceRig.turn),
+    demoTurn,
+    eyeSpacing: useRigSpring(faceRig.eyeSpacing),
+    eyeScale: useRigSpring(faceRig.eyeScale),
+    eyeRotation: useRigSpring(faceRig.eyeRotation),
+    eyeOffsetY: useRigSpring(faceRig.eyeOffsetY),
+    perspective: useRigSpring(faceRig.perspective),
+  }
   const clipId = useId().replaceAll(':', '')
   const path = shapeById(shapeId).path
   const eyes = eyeById(eyeStyle)
   const preset = MOTION_PRESETS[motionLevel]
-  const morphTransition = shouldReduceMotion ? { duration: 0 } : ALIVE_SPRING
+  const morphTransition = shouldReduceMotion ? { duration: 0 } : MORPH_SPRING
+  const inputs = rigInputs(rigValues)
+  const leftProjection = useTransform(inputs, (values) =>
+    projectionTransform(values as number[], eyes.leftCenter),
+  )
+  const rightProjection = useTransform(inputs, (values) =>
+    projectionTransform(values as number[], eyes.rightCenter),
+  )
+  const leftTransform = useTransform(
+    leftProjection,
+    (projection) => projection.cssTransform,
+  )
+  const rightTransform = useTransform(
+    rightProjection,
+    (projection) => projection.cssTransform,
+  )
+  const leftOpacity = useTransform(
+    leftProjection,
+    (projection) => projection.opacity,
+  )
+  const rightOpacity = useTransform(
+    rightProjection,
+    (projection) => projection.opacity,
+  )
 
   useEffect(() => {
     if (shouldReduceMotion) return
@@ -134,37 +209,30 @@ export const MoteAvatar = memo(function MoteAvatar({
 
   useEffect(() => {
     if (turnToken === 0 || shouldReduceMotion) {
-      faceTurn.set(0)
+      demoTurn.set(0)
       return
     }
 
-    let frame = 0
-    const startedAt = performance.now()
+    const controls = animate(demoTurn, [0, 88, -68, 0], {
+      duration: 1.35,
+      times: [0, 0.32, 0.7, 1],
+      ease: EASE_IN_OUT,
+    })
+    return () => controls.stop()
+  }, [demoTurn, shouldReduceMotion, turnToken])
 
-    const turn = (now: number) => {
-      const progress = Math.min((now - startedAt) / 1200, 1)
-      faceTurn.set(Math.sin(progress * Math.PI * 2) * 85 * (1 - progress))
-
-      if (progress < 1) {
-        frame = window.requestAnimationFrame(turn)
-      } else {
-        faceTurn.set(0)
-      }
-    }
-
-    frame = window.requestAnimationFrame(turn)
-
-    return () => {
-      window.cancelAnimationFrame(frame)
-      faceTurn.set(0)
-    }
-  }, [faceTurn, shouldReduceMotion, turnToken])
+  const blinkKey = `${blinkToken}-${autoBlink}`
+  const blinkAnimation = shouldReduceMotion
+    ? undefined
+    : { transform: ['scaleY(1)', 'scaleY(0.04)', 'scaleY(1)'] }
+  const sharedBlinkAnimation =
+    blinkToken > 0 || autoBlink > 0 ? blinkAnimation : undefined
 
   return (
     <motion.svg
       viewBox="0 0 320 320"
       role="img"
-      aria-label={`${shapeById(shapeId).label} mote preview`}
+      aria-label={`${shapeById(shapeId).label} mote, ${avatarStateById(state).label.toLowerCase()} state`}
       className="h-full w-full overflow-visible drop-shadow-[0_28px_30px_rgba(27,25,20,0.16)]"
       animate={shouldReduceMotion ? undefined : { transform: preset.transform }}
       transition={{
@@ -211,54 +279,90 @@ export const MoteAvatar = memo(function MoteAvatar({
       ) : null}
 
       <motion.g
-        key={`${blinkToken}-${autoBlink}`}
-        initial={{ transform: 'scaleY(1)' }}
-        animate={
-          shouldReduceMotion
-            ? undefined
-            : { transform: ['scaleY(1)', 'scaleY(0.08)', 'scaleY(1)'] }
-        }
-        transition={{ duration: 0.2, times: [0, 0.48, 1], ease: EASE_OUT }}
-        style={{ transformOrigin: '160px 153px' }}
+        data-eye="left"
+        style={{
+          opacity: leftOpacity,
+          transform: leftTransform,
+          transformOrigin: `${eyes.leftCenter.x}px ${eyes.leftCenter.y}px`,
+        }}
       >
         <motion.g
-          animate={{
-            transform: `translate3d(${gaze.x * 10}px, ${gaze.y * 7}px, 0)`,
+          key={blinkKey}
+          initial={{ transform: 'scaleY(1)' }}
+          animate={sharedBlinkAnimation}
+          transition={{
+            duration: 0.32,
+            times: [0, 0.42, 1],
+            ease: EASE_OUT,
           }}
-          transition={ALIVE_SPRING}
+          style={{
+            transformOrigin: `${eyes.leftCenter.x}px ${eyes.leftCenter.y}px`,
+          }}
         >
           <motion.g
+            key={`left-${winkTokens.left}`}
+            data-wink="left"
+            initial={{ transform: 'scaleY(1)' }}
+            animate={winkTokens.left > 0 ? blinkAnimation : undefined}
+            transition={{
+              duration: 0.32,
+              times: [0, 0.42, 1],
+              ease: EASE_OUT,
+            }}
             style={{
-              opacity: leftTurnOpacity,
-              transform: leftTurnTransform,
-              transformOrigin: '134px 153px',
+              transformOrigin: `${eyes.leftCenter.x}px ${eyes.leftCenter.y}px`,
             }}
           >
             <motion.path
               initial={false}
-              animate={{
-                d: eyes.leftPath,
-                fill: eyeColor,
-              }}
+              animate={{ d: eyes.leftPath, fill: eyeColor }}
               transition={{
                 d: morphTransition,
                 fill: { duration: 0.2, ease: EASE_OUT },
               }}
             />
           </motion.g>
+        </motion.g>
+      </motion.g>
+
+      <motion.g
+        data-eye="right"
+        style={{
+          opacity: rightOpacity,
+          transform: rightTransform,
+          transformOrigin: `${eyes.rightCenter.x}px ${eyes.rightCenter.y}px`,
+        }}
+      >
+        <motion.g
+          key={blinkKey}
+          initial={{ transform: 'scaleY(1)' }}
+          animate={sharedBlinkAnimation}
+          transition={{
+            duration: 0.32,
+            times: [0, 0.42, 1],
+            ease: EASE_OUT,
+          }}
+          style={{
+            transformOrigin: `${eyes.rightCenter.x}px ${eyes.rightCenter.y}px`,
+          }}
+        >
           <motion.g
+            key={`right-${winkTokens.right}`}
+            data-wink="right"
+            initial={{ transform: 'scaleY(1)' }}
+            animate={winkTokens.right > 0 ? blinkAnimation : undefined}
+            transition={{
+              duration: 0.32,
+              times: [0, 0.42, 1],
+              ease: EASE_OUT,
+            }}
             style={{
-              opacity: rightTurnOpacity,
-              transform: rightTurnTransform,
-              transformOrigin: '189px 153px',
+              transformOrigin: `${eyes.rightCenter.x}px ${eyes.rightCenter.y}px`,
             }}
           >
             <motion.path
               initial={false}
-              animate={{
-                d: eyes.rightPath,
-                fill: eyeColor,
-              }}
+              animate={{ d: eyes.rightPath, fill: eyeColor }}
               transition={{
                 d: morphTransition,
                 fill: { duration: 0.2, ease: EASE_OUT },

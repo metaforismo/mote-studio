@@ -4,25 +4,44 @@ import { describe, expect, it } from 'vitest'
 import {
   EYES,
   EYE_IDS,
+  AVATAR_STATES,
+  DEFAULT_FACE_RIG,
   SHAPES,
   SHAPE_IDS,
   closedCurvePath,
   createAvatarSvg,
   generateMoteConfig,
   eyeById,
+  projectEye,
 } from './index.js'
 
 describe('Mote core', () => {
   it('provides compatible morph targets for every public shape', () => {
     expect(SHAPES.map((shape) => shape.id)).toEqual(SHAPE_IDS)
-    expect(SHAPES).toHaveLength(13)
+    expect(SHAPES).toHaveLength(14)
 
     for (const shape of SHAPES) {
       expect(shape.path).toMatch(/^M /)
       expect(shape.path).toMatch(/ Z$/)
-      expect(shape.path.match(/C /g)).toHaveLength(24)
+      expect(shape.path.match(/C /g)).toHaveLength(32)
       expect(shape.path).not.toContain('NaN')
     }
+  })
+
+  it('projects eye positions continuously on the procedural face sphere', () => {
+    const eye = eyeById('neutral')
+    const centered = projectEye(eye.leftCenter, DEFAULT_FACE_RIG)
+    const turned = projectEye(eye.leftCenter, {
+      ...DEFAULT_FACE_RIG,
+      turn: 72,
+      eyeSpacing: 1.2,
+    })
+
+    expect(AVATAR_STATES).toHaveLength(8)
+    expect(centered.opacity).toBe(1)
+    expect(turned.translateX).not.toBe(centered.translateX)
+    expect(turned.scaleX).toBeLessThan(centered.scaleX)
+    expect(turned.cssTransform).toContain('translate3d')
   })
 
   it('provides 25 compatible eye expressions from the technical reference', () => {
@@ -47,6 +66,17 @@ describe('Mote core', () => {
     const first = generateMoteConfig('porto-at-dawn')
     const second = generateMoteConfig('porto-at-dawn')
     expect(first).toEqual(second)
+  })
+
+  it('merges partial face overrides onto the selected state pose', () => {
+    const config = generateMoteConfig('partial-rig', {
+      state: 'thinking',
+      face: { eyeSpacing: 1.3 },
+    })
+
+    expect(config.face.eyeSpacing).toBe(1.3)
+    expect(config.face.turn).toBe(-14)
+    expect(config.face.gazeY).toBe(-0.42)
   })
 
   it('renders a portable animated SVG with reduced-motion support', () => {

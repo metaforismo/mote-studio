@@ -6,14 +6,17 @@ import {
   type MoteConfig,
 } from './presets.js'
 import { EYE_IDS } from './eyes.js'
+import {
+  AVATAR_STATE_IDS,
+  avatarStateById,
+  normalizeFaceRig,
+  type FaceRigOverrides,
+} from './face-rig.js'
 import { SHAPE_IDS } from './shapes.js'
 
-export type MoteOverrides = Partial<
-  Pick<
-    MoteConfig,
-    'shapeId' | 'eyeStyle' | 'color' | 'motion' | 'autoMorph' | 'autoEyes'
-  >
->
+export type MoteOverrides = Omit<Partial<MoteConfig>, 'face'> & {
+  face?: FaceRigOverrides
+}
 
 const hashSeed = (seed: string): number => {
   let hash = 2166136261
@@ -47,14 +50,23 @@ export const generateMoteConfig = (
   if (!normalizedSeed) throw new Error('A non-empty seed is required')
 
   const random = mulberry32(hashSeed(normalizedSeed))
+  const state = overrides.state ?? pick(AVATAR_STATE_IDS, random)
+  const stateDefinition = avatarStateById(state)
   return {
     shapeId: overrides.shapeId ?? pick(SHAPE_IDS, random),
-    eyeStyle: overrides.eyeStyle ?? pick(EYE_IDS, random),
+    eyeStyle:
+      overrides.eyeStyle ??
+      pick(
+        stateDefinition.eyePool.length ? stateDefinition.eyePool : EYE_IDS,
+        random,
+      ),
     color:
       overrides.color === undefined
         ? pick(COLORS, random).value
         : normalizeHexColor(overrides.color),
     motion: overrides.motion ?? pick(MOTION_IDS, random),
+    state,
+    face: normalizeFaceRig({ ...stateDefinition.rig, ...overrides.face }),
     autoMorph: overrides.autoMorph ?? DEFAULT_CONFIG.autoMorph,
     autoEyes: overrides.autoEyes ?? DEFAULT_CONFIG.autoEyes,
   }

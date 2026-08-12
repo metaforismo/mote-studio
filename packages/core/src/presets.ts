@@ -1,4 +1,9 @@
 import type { EyeId } from './eyes.js'
+import {
+  DEFAULT_FACE_RIG,
+  type AvatarStateId,
+  type FaceRigConfig,
+} from './face-rig.js'
 import type { ShapeId } from './shapes.js'
 
 export const COLORS = [
@@ -23,6 +28,8 @@ export type MoteConfig = {
   eyeStyle: EyeId
   color: string
   motion: MotionLevel
+  state: AvatarStateId
+  face: FaceRigConfig
   autoMorph: boolean
   autoEyes: boolean
 }
@@ -32,6 +39,8 @@ export const DEFAULT_CONFIG: MoteConfig = {
   eyeStyle: 'neutral',
   color: '#f56a16',
   motion: 'playful',
+  state: 'idle',
+  face: DEFAULT_FACE_RIG,
   autoMorph: true,
   autoEyes: false,
 }

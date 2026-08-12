@@ -7,6 +7,7 @@ import {
   MagicWand,
   Pause,
   Play,
+  SlidersHorizontal,
 } from '@phosphor-icons/react'
 import { MotionConfig, useReducedMotion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -18,25 +19,105 @@ import { ShapePicker } from './components/ShapePicker'
 import { UploadPanel, type UploadedImage } from './components/UploadPanel'
 import {
   COLORS,
+  AVATAR_STATES,
   DEFAULT_CONFIG,
+  DEFAULT_FACE_RIG,
   EYES,
   MOTION_LEVELS,
   SHAPES,
   createAvatarSvg,
-  eyeById,
   getEyeColor,
+  avatarStateById,
+  normalizeFaceRig,
   shapeById,
   type MoteConfig,
+  type AvatarStateId,
   type EyeId,
+  type FaceRigConfig,
   type MotionLevel,
   type ShapeId,
 } from '@mote-studio/core'
 import { downloadPng, downloadSvg } from './lib/exportAvatar'
+import type { WinkSide, WinkTokens } from './components/MoteAvatar'
 
-type StudioTab = 'bot' | 'generate' | 'upload'
+type StudioTab = 'bot' | 'rig' | 'generate' | 'upload'
 type ExportState = 'idle' | 'png' | 'error'
 
-const TAB_ORDER: StudioTab[] = ['bot', 'generate', 'upload']
+const TAB_ORDER: StudioTab[] = ['bot', 'rig', 'generate', 'upload']
+
+const RIG_CONTROLS: Array<{
+  key: keyof FaceRigConfig
+  label: string
+  min: number
+  max: number
+  step: number
+  format: (value: number) => string
+}> = [
+  {
+    key: 'turn',
+    label: 'Head turn',
+    min: -100,
+    max: 100,
+    step: 1,
+    format: (value) => `${Math.round(value)}°`,
+  },
+  {
+    key: 'gazeX',
+    label: 'Horizontal gaze',
+    min: -1,
+    max: 1,
+    step: 0.01,
+    format: (value) => value.toFixed(2),
+  },
+  {
+    key: 'gazeY',
+    label: 'Vertical gaze',
+    min: -1,
+    max: 1,
+    step: 0.01,
+    format: (value) => value.toFixed(2),
+  },
+  {
+    key: 'eyeSpacing',
+    label: 'Eye spacing',
+    min: 0.55,
+    max: 1.55,
+    step: 0.01,
+    format: (value) => `${value.toFixed(2)}×`,
+  },
+  {
+    key: 'eyeScale',
+    label: 'Eye scale',
+    min: 0.45,
+    max: 1.65,
+    step: 0.01,
+    format: (value) => `${value.toFixed(2)}×`,
+  },
+  {
+    key: 'eyeRotation',
+    label: 'Local rotation',
+    min: -55,
+    max: 55,
+    step: 1,
+    format: (value) => `${Math.round(value)}°`,
+  },
+  {
+    key: 'eyeOffsetY',
+    label: 'Eye height',
+    min: -34,
+    max: 34,
+    step: 1,
+    format: (value) => `${Math.round(value)}`,
+  },
+  {
+    key: 'perspective',
+    label: 'Perspective',
+    min: 0,
+    max: 1.4,
+    step: 0.01,
+    format: (value) => `${value.toFixed(2)}×`,
+  },
+]
 
 const readSavedConfig = (): MoteConfig => {
   try {
@@ -51,8 +132,17 @@ const readSavedConfig = (): MoteConfig => {
     const isKnownMotion = MOTION_LEVELS.some(
       (motionLevel) => motionLevel.id === parsed.motion,
     )
+    const isKnownState = AVATAR_STATES.some(
+      (state) => state.id === parsed.state,
+    )
 
-    if (!isKnownShape || !isKnownEye || !isKnownColor || !isKnownMotion) {
+    if (
+      !isKnownShape ||
+      !isKnownEye ||
+      !isKnownColor ||
+      !isKnownMotion ||
+      (parsed.state !== undefined && !isKnownState)
+    ) {
       return DEFAULT_CONFIG
     }
 
@@ -61,6 +151,8 @@ const readSavedConfig = (): MoteConfig => {
       eyeStyle: (parsed.eyeStyle ?? DEFAULT_CONFIG.eyeStyle) as EyeId,
       color: parsed.color as string,
       motion: parsed.motion as MotionLevel,
+      state: (parsed.state ?? DEFAULT_CONFIG.state) as AvatarStateId,
+      face: normalizeFaceRig(parsed.face ?? DEFAULT_FACE_RIG),
       autoMorph: parsed.autoMorph ?? DEFAULT_CONFIG.autoMorph,
       autoEyes: parsed.autoEyes ?? DEFAULT_CONFIG.autoEyes,
     }
@@ -80,6 +172,10 @@ function App() {
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null)
   const [gaze, setGaze] = useState({ x: 0, y: 0 })
   const [blinkToken, setBlinkToken] = useState(0)
+  const [winkTokens, setWinkTokens] = useState<WinkTokens>({
+    left: 0,
+    right: 0,
+  })
   const [turnToken, setTurnToken] = useState(0)
   const [isGenerating, setIsGenerating] = useState(false)
   const [exportState, setExportState] = useState<ExportState>('idle')
@@ -120,19 +216,23 @@ function App() {
   useEffect(() => {
     if (!config.autoEyes || shouldReduceMotion) return
 
-    const cadence = { calm: 9000, playful: 6200, kinetic: 4200 }[config.motion]
+    const currentState = avatarStateById(config.state)
+    const motionFactor = { calm: 1.18, playful: 1, kinetic: 0.72 }[
+      config.motion
+    ]
+    const cadence = currentState.cadenceMs * motionFactor
     const interval = window.setInterval(() => {
       setConfig((current) => ({
         ...current,
         eyeStyle: randomDifferent(
-          EYES.map((eyes) => eyes.id),
+          [...avatarStateById(current.state).eyePool],
           current.eyeStyle,
         ),
       }))
     }, cadence)
 
     return () => window.clearInterval(interval)
-  }, [config.autoEyes, config.motion, shouldReduceMotion])
+  }, [config.autoEyes, config.motion, config.state, shouldReduceMotion])
 
   const svgSource = useMemo(
     () =>
@@ -141,12 +241,18 @@ function App() {
         eyeStyle: config.eyeStyle,
         color: config.color,
         eyeColor,
+        motion: config.motion,
+        state: config.state,
+        face: config.face,
         imageDataUrl: uploadedImage?.dataUrl,
       }),
     [
       config.color,
       config.eyeStyle,
+      config.face,
+      config.motion,
       config.shapeId,
+      config.state,
       eyeColor,
       uploadedImage?.dataUrl,
     ],
@@ -170,6 +276,32 @@ function App() {
     setAnnouncement(`${eyes?.label ?? 'Eye'} expression selected`)
   }
 
+  const selectState = (stateId: AvatarStateId) => {
+    const state = avatarStateById(stateId)
+    setConfig((current) => ({
+      ...current,
+      state: stateId,
+      eyeStyle: state.eyePool[0] ?? current.eyeStyle,
+      face: state.rig,
+    }))
+    setAnnouncement(`${state.label} state selected`)
+  }
+
+  const updateFaceRig = (key: keyof FaceRigConfig, value: number) => {
+    setConfig((current) => ({
+      ...current,
+      face: normalizeFaceRig({ ...current.face, [key]: value }),
+    }))
+  }
+
+  const wink = (side: WinkSide) => {
+    setWinkTokens((current) => ({
+      ...current,
+      [side]: current[side] + 1,
+    }))
+    setAnnouncement(`${side === 'left' ? 'Left' : 'Right'} eye winked`)
+  }
+
   const generateMote = () => {
     if (isGenerating) return
     setIsGenerating(true)
@@ -178,25 +310,31 @@ function App() {
 
     generateTimer.current = window.setTimeout(
       () => {
-        setConfig((current) => ({
-          ...current,
-          shapeId: randomDifferent(
-            SHAPES.map((shape) => shape.id),
-            current.shapeId,
-          ),
-          eyeStyle: randomDifferent(
-            EYES.map((eyes) => eyes.id),
-            current.eyeStyle,
-          ),
-          color: randomDifferent(
-            COLORS.map((color) => color.value),
-            current.color,
-          ),
-          motion: randomDifferent(
-            MOTION_LEVELS.map((motionLevel) => motionLevel.id),
-            current.motion,
-          ),
-        }))
+        setConfig((current) => {
+          const stateId = randomDifferent(
+            AVATAR_STATES.map((state) => state.id),
+            current.state,
+          )
+          const state = avatarStateById(stateId)
+          return {
+            ...current,
+            shapeId: randomDifferent(
+              SHAPES.map((shape) => shape.id),
+              current.shapeId,
+            ),
+            eyeStyle: randomDifferent([...state.eyePool], current.eyeStyle),
+            color: randomDifferent(
+              COLORS.map((color) => color.value),
+              current.color,
+            ),
+            motion: randomDifferent(
+              MOTION_LEVELS.map((motionLevel) => motionLevel.id),
+              current.motion,
+            ),
+            state: stateId,
+            face: state.rig,
+          }
+        })
         setUploadedImage(null)
         setIsGenerating(false)
         setAnnouncement('A new mote was generated')
@@ -209,6 +347,7 @@ function App() {
     setConfig(DEFAULT_CONFIG)
     setUploadedImage(null)
     setGaze({ x: 0, y: 0 })
+    setWinkTokens({ left: 0, right: 0 })
     setExportState('idle')
     setAnnouncement('Studio reset to defaults')
   }
@@ -321,7 +460,7 @@ function App() {
               </div>
               <span className="rounded-full border border-[#d0cfc7] bg-[#f7f6f0]/70 px-3 py-1.5 text-[0.68rem] font-semibold tracking-[0.14em] text-[#696b63] uppercase backdrop-blur-sm">
                 {shapeById(config.shapeId).label} ·{' '}
-                {eyeById(config.eyeStyle).label}
+                {avatarStateById(config.state).label}
               </span>
             </div>
 
@@ -342,8 +481,11 @@ function App() {
                 color={config.color}
                 eyeColor={eyeColor}
                 motionLevel={config.motion}
+                state={config.state}
+                faceRig={config.face}
                 gaze={gaze}
                 blinkToken={blinkToken}
+                winkTokens={winkTokens}
                 turnToken={turnToken}
                 imageDataUrl={uploadedImage?.dataUrl}
               />
@@ -358,6 +500,20 @@ function App() {
                 >
                   <Eye aria-hidden="true" size={16} />
                   Blink
+                </button>
+                <button
+                  type="button"
+                  onClick={() => wink('left')}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#cfcec6] bg-[#f7f6f0]/78 px-2.5 py-2 text-xs font-medium whitespace-nowrap text-[#4d4f48] backdrop-blur-sm transition-colors hover:bg-[#fffef8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.97] sm:px-3.5"
+                >
+                  Wink L
+                </button>
+                <button
+                  type="button"
+                  onClick={() => wink('right')}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#cfcec6] bg-[#f7f6f0]/78 px-2.5 py-2 text-xs font-medium whitespace-nowrap text-[#4d4f48] backdrop-blur-sm transition-colors hover:bg-[#fffef8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.97] sm:px-3.5"
+                >
+                  Wink R
                 </button>
                 <button
                   type="button"
@@ -420,7 +576,7 @@ function App() {
                   tabIndex={activeTab === tab ? 0 : -1}
                   onClick={() => setActiveTab(tab)}
                   onKeyDown={(event) => handleTabKeyDown(event, tab)}
-                  className="relative rounded-t-xl px-3 py-3 text-sm font-medium text-[#979991] capitalize transition-colors hover:text-[#dedfd8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none focus-visible:ring-inset sm:px-4"
+                  className="relative rounded-t-xl px-2.5 py-3 text-[0.8rem] font-medium text-[#979991] capitalize transition-colors hover:text-[#dedfd8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none focus-visible:ring-inset sm:px-3"
                 >
                   {tab}
                   {activeTab === tab ? (
@@ -431,7 +587,7 @@ function App() {
               <button
                 type="button"
                 onClick={resetAll}
-                className="ml-auto rounded-xl px-3 py-3 text-sm font-medium text-[#979991] transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none focus-visible:ring-inset active:scale-[0.97] sm:px-4"
+                className="ml-auto rounded-xl px-2.5 py-3 text-[0.8rem] font-medium text-[#979991] transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none focus-visible:ring-inset active:scale-[0.97] sm:px-3"
               >
                 Reset
               </button>
@@ -466,6 +622,139 @@ function App() {
                       selected={config.color}
                       onSelect={selectColor}
                     />
+                  </div>
+                ) : null}
+
+                {activeTab === 'rig' ? (
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-medium text-[#f2f0e8]">
+                        <SlidersHorizontal aria-hidden="true" size={17} />
+                        Procedural face rig
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-[#92958c]">
+                        Every control reprojects the SVG eyes on a virtual
+                        sphere. Drag quickly: the spring continues from its
+                        current pose.
+                      </p>
+                    </div>
+
+                    <fieldset>
+                      <legend className="mb-3 text-[0.68rem] font-semibold tracking-[0.18em] text-[#8f9188] uppercase">
+                        State
+                      </legend>
+                      <div className="grid grid-cols-2 gap-2">
+                        {AVATAR_STATES.map((state) => {
+                          const isSelected = state.id === config.state
+                          return (
+                            <button
+                              key={state.id}
+                              type="button"
+                              aria-pressed={isSelected}
+                              onClick={() => selectState(state.id)}
+                              className="rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
+                              style={{
+                                borderColor: isSelected
+                                  ? '#f56a16'
+                                  : 'rgba(255,255,255,0.075)',
+                                backgroundColor: isSelected
+                                  ? 'rgba(245,106,22,0.09)'
+                                  : '#1c1d19',
+                              }}
+                            >
+                              <span
+                                className={`block text-xs font-semibold ${
+                                  isSelected
+                                    ? 'text-[#f2f0e8]'
+                                    : 'text-[#b0b2aa]'
+                                }`}
+                              >
+                                {state.label}
+                              </span>
+                              <span className="mt-0.5 block truncate text-[0.64rem] text-[#7f8279]">
+                                {state.description}
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </fieldset>
+
+                    <div className="space-y-4 rounded-[1.2rem] border border-white/[0.07] bg-[#1c1d19] p-4">
+                      {RIG_CONTROLS.map((control) => {
+                        const value = config.face[control.key]
+                        return (
+                          <div key={control.key} className="block">
+                            <span className="mb-2 flex items-center justify-between gap-3 text-xs">
+                              <label
+                                htmlFor={`rig-${control.key}`}
+                                className="font-medium text-[#c8cac2]"
+                              >
+                                {control.label}
+                              </label>
+                              <output
+                                htmlFor={`rig-${control.key}`}
+                                className="min-w-12 rounded-md bg-white/[0.055] px-1.5 py-0.5 text-right font-mono text-[0.65rem] text-[#a7aaa1]"
+                              >
+                                {control.format(value)}
+                              </output>
+                            </span>
+                            <input
+                              id={`rig-${control.key}`}
+                              type="range"
+                              min={control.min}
+                              max={control.max}
+                              step={control.step}
+                              value={value}
+                              aria-valuetext={control.format(value)}
+                              onChange={(event) =>
+                                updateFaceRig(
+                                  control.key,
+                                  Number(event.target.value),
+                                )
+                              }
+                              className="h-5 w-full cursor-ew-resize accent-[#f56a16]"
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => wink('left')}
+                        className="rounded-xl border border-white/10 px-2 py-2.5 text-xs font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
+                      >
+                        Wink left
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => wink('right')}
+                        className="rounded-xl border border-white/10 px-2 py-2.5 text-xs font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
+                      >
+                        Wink right
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfig((current) => ({
+                            ...current,
+                            state: 'idle',
+                            face: DEFAULT_FACE_RIG,
+                          }))
+                          setAnnouncement('Face rig centered')
+                        }}
+                        className="rounded-xl border border-white/10 px-2 py-2.5 text-xs font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
+                      >
+                        Center
+                      </button>
+                    </div>
+
+                    <p className="rounded-xl border border-[#f56a16]/20 bg-[#f56a16]/[0.065] px-3 py-2.5 text-[0.68rem] leading-relaxed text-[#b8aaa0]">
+                      Twenty-five contours × eight data-driven states × this
+                      continuous rig produce an open-ended expression space.
+                    </p>
                   </div>
                 ) : null}
 
@@ -670,7 +959,7 @@ function App() {
         </main>
 
         <footer className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-4 pt-1 pb-8 text-xs text-[#85887f] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <p>Thirteen shapes · Twenty-five eye expressions · Eleven colors</p>
+          <p>Fourteen shapes · Twenty-five eye expressions · Eight states</p>
           <a
             href="#studio"
             className="inline-flex min-h-6 items-center gap-1.5 self-start rounded-lg transition-colors hover:text-[#c7c9c1] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none sm:self-auto"
