@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a reproducible problem in Mote Studio
+title: '[Bug]: '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve Mote Studio. Do not attach private images.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the actual and expected behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open…
+        2. Select…
+        3. Observe…
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Safari 19.0, Chrome 142, Firefox 144…
+    validations:
+      required: true
+
+  - type: dropdown
+    id: motion
+    attributes:
+      label: Reduced motion enabled?
+      options:
+        - 'No'
+        - 'Yes'
+        - 'Not sure'
+    validations:
+      required: true
