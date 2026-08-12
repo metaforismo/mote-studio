@@ -7,23 +7,33 @@ describe('Mote Studio', () => {
     window.localStorage.clear()
   })
 
-  it('changes shape and color, then restores the default mote', () => {
+  it('changes shape, eye expression, and color, then restores defaults', () => {
     render(<App />)
 
-    const softShape = screen.getByRole('button', {
-      name: 'Soft: Organic and uneven',
+    const pebbleShape = screen.getByRole('button', {
+      name: 'Pebble: Grounded and soft',
+    })
+    const joyfulEyes = screen.getByRole('button', {
+      name: '02 Joyful: Open and buoyant',
     })
     const skyColor = screen.getByRole('button', { name: 'Sky' })
-    fireEvent.click(softShape)
+    fireEvent.click(pebbleShape)
+    fireEvent.click(joyfulEyes)
     fireEvent.click(skyColor)
 
-    expect(softShape).toHaveAttribute('aria-pressed', 'true')
+    expect(pebbleShape).toHaveAttribute('aria-pressed', 'true')
+    expect(joyfulEyes).toHaveAttribute('aria-pressed', 'true')
     expect(skyColor).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
 
     expect(
-      screen.getByRole('button', { name: 'Orb: Balanced and calm' }),
+      screen.getByRole('button', { name: 'Blob: Balanced and organic' }),
+    ).toHaveAttribute('aria-pressed', 'true')
+    expect(
+      screen.getByRole('button', {
+        name: '00 Neutral: Balanced and available',
+      }),
     ).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Tangerine' })).toHaveAttribute(
       'aria-pressed',
@@ -38,11 +48,46 @@ describe('Mote Studio', () => {
     botTab.focus()
     fireEvent.keyDown(botTab, { key: 'ArrowRight' })
 
-    expect(screen.getByRole('tab', { name: 'generate' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: 'rig' })).toHaveAttribute(
       'aria-selected',
       'true',
     )
-    expect(await screen.findByText('Motion character')).toBeInTheDocument()
+    expect(await screen.findByText('Face pose')).toBeInTheDocument()
+  })
+
+  it('applies a state pose and exposes continuous face controls', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('tab', { name: 'rig' }))
+    fireEvent.click(screen.getByRole('button', { name: /Thinking:/ }))
+
+    expect(screen.getByText('Thinking state selected')).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: 'Turn' })).toHaveValue('-14')
+
+    fireEvent.change(screen.getByRole('slider', { name: 'Spacing' }), {
+      target: { value: '1.31' },
+    })
+    expect(screen.getByRole('slider', { name: 'Spacing' })).toHaveValue('1.31')
+
+    const gazePad = screen.getByRole('button', { name: /Eye direction:/ })
+    fireEvent.keyDown(gazePad, { key: 'Home' })
+    expect(gazePad).toHaveAccessibleName(/center, middle/)
+  })
+
+  it('clips projected eyes to the current silhouette', () => {
+    render(<App />)
+
+    const eyeLayer = document.querySelector('[data-eye-layer="clipped"]')
+    expect(eyeLayer).toBeInTheDocument()
+    expect(eyeLayer?.getAttribute('clip-path')).toMatch(/^url\(#.+\)$/)
+  })
+
+  it('offers the reference-derived face turn without background effects', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Turn' }))
+
+    expect(screen.getByText('The mote turned its face')).toBeInTheDocument()
+    expect(document.querySelector('ellipse')).not.toBeInTheDocument()
   })
 
   it('shows an inline validation error for unsupported uploads', async () => {

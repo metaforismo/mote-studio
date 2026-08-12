@@ -14,7 +14,11 @@ Keep pull requests small enough to review visually and technically. Describe the
 
 ## Shape presets
 
-All morphable body paths must keep the same command topology. Add new presets through the point-ring helpers in `src/lib/shapes.ts`, then extend the path compatibility tests.
+All morphable body and eye paths must keep the same command topology. Add silhouettes through the point-ring helpers in `packages/core/src/shapes.ts`, eye expressions through `packages/core/src/eyes.ts`, then extend the path compatibility tests.
+
+## MCP changes
+
+Keep the MCP transport free of standard-output logging because stdout is reserved for protocol messages. New tools should have narrow schemas, truthful annotations, structured output, and in-memory plus stdio integration coverage.
 
 ## Reporting issues
 

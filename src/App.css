@@ -50,6 +50,40 @@
   animation: skeleton-shimmer 1.15s linear infinite;
 }
 
+.gaze-pad {
+  cursor: crosshair;
+  background-image: radial-gradient(
+    circle at center,
+    rgba(245, 106, 22, 0.08),
+    transparent 48%
+  );
+}
+
+.rig-range {
+  height: 1.25rem;
+  cursor: ew-resize;
+  accent-color: #f56a16;
+}
+
+.rig-advanced summary {
+  list-style: none;
+}
+
+.rig-advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.rig-advanced summary::after {
+  float: right;
+  color: #777a71;
+  content: '+';
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.rig-advanced[open] summary::after {
+  transform: rotate(45deg);
+}
+
 @keyframes skeleton-shimmer {
   to {
     transform: translateX(100%);

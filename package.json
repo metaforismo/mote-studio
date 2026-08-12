@@ -12,13 +12,23 @@
   "engines": {
     "node": ">=22"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "type": "module",
   "scripts": {
+    "predev": "npm run build:core",
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run build:packages && tsc -b && vite build",
+    "build:core": "npm run build --workspace @mote-studio/core",
+    "build:mcp": "npm run build --workspace @mote-studio/mcp",
+    "build:packages": "npm run build:core && npm run build:mcp",
     "lint": "oxlint",
+    "pretest": "npm run build:packages",
     "test": "vitest run",
     "test:watch": "vitest",
+    "mcp:build": "npm run build:packages",
+    "mcp:inspect": "npm run mcp:build && npx @modelcontextprotocol/inspector node packages/mcp/dist/cli.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run format:check && npm run lint && npm run test && npm run build",
@@ -26,6 +36,7 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
+    "@mote-studio/core": "file:packages/core",
     "@phosphor-icons/react": "^2.1.10",
     "motion": "^13.1.0",
     "react": "^19.2.8",
