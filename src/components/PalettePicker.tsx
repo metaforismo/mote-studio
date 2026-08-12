@@ -1,5 +1,5 @@
 import { Check } from '@phosphor-icons/react'
-import { COLORS } from '../constants'
+import { COLORS } from '@mote-studio/core'
 
 type PalettePickerProps = {
   selected: string

@@ -71,21 +71,28 @@ const round = (value: number) => Number(value.toFixed(2))
 
 /**
  * Converts a closed point ring to compatible cubic Bézier commands.
- * Every preset uses the same point count, so Motion can interpolate `d`
- * without replacing the SVG node or causing a layout jump.
+ * Every preset uses the same point count, so animation engines can
+ * interpolate `d` without replacing the SVG node or causing a layout jump.
  */
 export const closedCurvePath = (points: Point[]): string => {
   if (points.length < 3) {
     throw new Error('A closed curve requires at least three points')
   }
 
-  const commands = ['M ' + round(points[0].x) + ' ' + round(points[0].y)]
+  const first = points[0]
+  if (!first) throw new Error('A closed curve requires at least three points')
+
+  const commands = [`M ${round(first.x)} ${round(first.y)}`]
 
   for (let index = 0; index < points.length; index += 1) {
     const previous = points[(index - 1 + points.length) % points.length]
     const current = points[index]
     const next = points[(index + 1) % points.length]
     const afterNext = points[(index + 2) % points.length]
+
+    if (!previous || !current || !next || !afterNext) {
+      throw new Error('The point ring is incomplete')
+    }
 
     const controlOne = {
       x: current.x + (next.x - previous.x) / 6,
@@ -97,22 +104,11 @@ export const closedCurvePath = (points: Point[]): string => {
     }
 
     commands.push(
-      'C ' +
-        round(controlOne.x) +
-        ' ' +
-        round(controlOne.y) +
-        ' ' +
-        round(controlTwo.x) +
-        ' ' +
-        round(controlTwo.y) +
-        ' ' +
-        round(next.x) +
-        ' ' +
-        round(next.y),
+      `C ${round(controlOne.x)} ${round(controlOne.y)} ${round(controlTwo.x)} ${round(controlTwo.y)} ${round(next.x)} ${round(next.y)}`,
     )
   }
 
-  return commands.join(' ') + ' Z'
+  return `${commands.join(' ')} Z`
 }
 
 const pointSets: Record<ShapeId, Point[]> = {
@@ -197,5 +193,8 @@ export const SHAPES: ShapeDefinition[] = SHAPE_IDS.map((id) => ({
   path: closedCurvePath(pointSets[id]),
 }))
 
-export const shapeById = (id: ShapeId): ShapeDefinition =>
-  SHAPES.find((shape) => shape.id === id) ?? SHAPES[0]
+export const shapeById = (id: ShapeId): ShapeDefinition => {
+  const shape = SHAPES.find((candidate) => candidate.id === id)
+  if (!shape) throw new Error(`Unknown Mote shape: ${id}`)
+  return shape
+}

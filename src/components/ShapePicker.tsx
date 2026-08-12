@@ -1,5 +1,4 @@
-import type { ShapeId } from '../lib/shapes'
-import { SHAPES } from '../lib/shapes'
+import { SHAPES, type ShapeId } from '@mote-studio/core'
 
 type ShapePickerProps = {
   selected: ShapeId

@@ -1,8 +1,6 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { memo, useEffect, useId, useState } from 'react'
-import type { MotionLevel } from '../constants'
-import type { ShapeId } from '../lib/shapes'
-import { shapeById } from '../lib/shapes'
+import { shapeById, type MotionLevel, type ShapeId } from '@mote-studio/core'
 
 type MoteAvatarProps = {
   shapeId: ShapeId

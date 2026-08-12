@@ -19,12 +19,15 @@ import {
   COLORS,
   DEFAULT_CONFIG,
   MOTION_LEVELS,
+  SHAPES,
+  createAvatarSvg,
   getEyeColor,
+  shapeById,
   type MoteConfig,
   type MotionLevel,
-} from './constants'
-import { createAvatarSvg, downloadPng, downloadSvg } from './lib/exportAvatar'
-import { SHAPES, shapeById, type ShapeId } from './lib/shapes'
+  type ShapeId,
+} from '@mote-studio/core'
+import { downloadPng, downloadSvg } from './lib/exportAvatar'
 
 type StudioTab = 'bot' | 'generate' | 'upload'
 type ExportState = 'idle' | 'png' | 'error'

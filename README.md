@@ -4,6 +4,12 @@ Mote Studio is a local-first character lab for designing tiny animated SVG chara
 
 The interface was built from scratch around a dark tool dock and a bright live canvas. Its motion language is inspired by playful shape studies: spring-based morphs, natural blinking, pointer gaze, idle drift, and short orbit bursts that connect state changes.
 
+![Mote Studio on desktop](docs/screenshots/mote-studio-desktop.png)
+
+<p align="center">
+  <img src="docs/screenshots/mote-studio-mobile.png" width="390" alt="Mote Studio's responsive mobile interface" />
+</p>
+
 ## Features
 
 - Eight compatible SVG silhouettes with smooth path morphing
@@ -13,6 +19,7 @@ The interface was built from scratch around a dark tool dock and a bright live c
 - Pointer-following gaze and click-to-blink feedback
 - Local image textures with drag-and-drop and inline validation
 - Deterministic SVG and 1024 × 1024 PNG export
+- Local MCP server for agent-generated, reproducible Motes
 - Persistent preferences in browser storage
 - Keyboard-operable tabs and controls
 - Reduced-motion support and responsive layouts down to 320 px
@@ -27,6 +34,7 @@ Uploaded images never leave the browser. Mote Studio has no backend, account sys
 - Motion for React
 - Phosphor Icons
 - Vitest and Testing Library
+- Model Context Protocol TypeScript SDK 2
 - Oxlint and Prettier
 
 ## Getting started
@@ -52,11 +60,58 @@ npm run lint         # Run Oxlint
 npm run format       # Format source and documentation
 npm run build        # Type-check and create a production build
 npm run check        # Run formatting, lint, tests, and build
+npm run mcp:build    # Build the shared core and MCP server
+npm run mcp:inspect  # Open the MCP Inspector against the local server
+```
+
+## Use with an AI agent
+
+The repository includes a local [Model Context Protocol](https://modelcontextprotocol.io/) server. It exposes the same shape, palette, motion, and SVG-rendering logic used by the web app, so an agent can create a Mote for another project without scraping the interface.
+
+Available tools:
+
+| Tool                | Purpose                                                                      |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `list_mote_presets` | Discover the supported shapes, colors, motion styles, and defaults           |
+| `create_mote`       | Generate a reproducible configuration and portable SVG from an optional seed |
+| `render_mote_svg`   | Render an exact configuration as dependency-free inline SVG                  |
+
+Build the server once, then register its absolute path with Codex:
+
+```bash
+npm ci
+npm run mcp:build
+codex mcp add mote-studio -- node /absolute/path/to/mote-studio/packages/mcp/dist/cli.js
+codex mcp list
+```
+
+For another MCP client, use the equivalent local command configuration:
+
+```json
+{
+  "mcpServers": {
+    "mote-studio": {
+      "command": "node",
+      "args": ["/absolute/path/to/mote-studio/packages/mcp/dist/cli.js"]
+    }
+  }
+}
+```
+
+The MCP process uses standard input/output only for protocol messages. Its three tools are annotated as local, read-only, non-destructive, and closed-world; they do not read files, write files, or make network requests. Generated SVGs validate colors, escape titles, and reject non-image texture data URLs.
+
+## Repository layout
+
+```text
+src/             React studio
+packages/core/   Shared shapes, presets, generator, and SVG renderer
+packages/mcp/    Local stdio MCP server and protocol tests
+docs/screenshots README captures generated from the running app
 ```
 
 ## How morphing works
 
-Every silhouette resolves to a closed ring of 16 points. The path generator converts each ring to the same number and order of cubic Bézier commands. Because the SVG command topology stays compatible, Motion can interpolate the `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes.
+Every silhouette resolves to a closed ring of 16 points in `packages/core`. The path generator converts each ring to the same number and order of cubic Bézier commands. Because the SVG command topology stays compatible, Motion can interpolate the `d` attribute directly instead of replacing nodes or crossfading between unrelated shapes.
 
 Ambient movement is isolated from path morphing, eye gaze, blinking, and orbit effects. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
 
