@@ -37,6 +37,24 @@ const faceRigSchema = z.object({
   perspective: z.number().min(0).max(1.4),
 })
 
+const rigPerformanceSchema = z.object({
+  durationMs: z.number().int().positive(),
+  times: z.tuple([z.number(), z.number(), z.number()]),
+  rigDeltas: z.partialRecord(
+    z.enum([
+      'gazeX',
+      'gazeY',
+      'turn',
+      'eyeSpacing',
+      'eyeScale',
+      'eyeRotation',
+      'eyeOffsetY',
+      'perspective',
+    ]),
+    z.tuple([z.number(), z.number(), z.number()]),
+  ),
+})
+
 const moteConfigSchema = z.object({
   shapeId: shapeIdSchema,
   eyeStyle: eyeIdSchema,
@@ -112,6 +130,8 @@ export const createMoteServer = () => {
             id: stateSchema,
             label: z.string(),
             description: z.string(),
+            eyePair: z.tuple([eyeIdSchema, eyeIdSchema]),
+            performance: rigPerformanceSchema,
             eyePool: z.array(eyeIdSchema),
             cadenceMs: z.number().int().positive(),
             rig: faceRigSchema,

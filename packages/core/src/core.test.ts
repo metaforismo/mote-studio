@@ -12,6 +12,7 @@ import {
   createAvatarSvg,
   generateMoteConfig,
   eyeById,
+  performanceRigFrames,
   projectEye,
 } from './index.js'
 
@@ -37,7 +38,24 @@ describe('Mote core', () => {
       eyeSpacing: 1.2,
     })
 
-    expect(AVATAR_STATES).toHaveLength(8)
+    expect(AVATAR_STATES).toHaveLength(12)
+    expect(AVATAR_STATES.every((state) => state.eyePair.length === 2)).toBe(
+      true,
+    )
+    expect(
+      AVATAR_STATES.every(
+        (state) =>
+          state.performance.durationMs >= 850 &&
+          state.performance.durationMs <= 1650 &&
+          Object.keys(state.performance.rigDeltas).length >= 2,
+      ),
+    ).toBe(true)
+    for (const state of AVATAR_STATES) {
+      const [start, middle, end] = performanceRigFrames(state)
+      expect(start).toEqual(state.rig)
+      expect(end).toEqual(state.rig)
+      expect(middle).not.toEqual(state.rig)
+    }
     expect(centered.opacity).toBe(1)
     expect(turned.translateX).not.toBe(centered.translateX)
     expect(turned.scaleX).toBeLessThan(centered.scaleX)
@@ -92,6 +110,9 @@ describe('Mote core', () => {
     expect(svg).toContain('<title')
     expect(svg).toContain('prefers-reduced-motion:no-preference')
     expect(svg).toContain('@keyframes mote-idle')
+    expect(svg).toContain('-left-rig')
+    expect(svg).toContain('-left-expression')
+    expect(svg).toContain('d:path(')
     expect(svg).toContain('aria-labelledby=')
     expect(svg).toContain(eyeById('joyful').leftPath)
     expect(svg).toMatch(/-eyes" fill="#[0-9a-f]+" clip-path="url\(#.+-clip\)"/)

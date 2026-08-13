@@ -7,7 +7,7 @@ import {
   useTransform,
   type MotionValue,
 } from 'motion/react'
-import { memo, useEffect, useId, useState } from 'react'
+import { memo, useEffect, useId, useMemo, useState } from 'react'
 import {
   avatarStateById,
   eyeById,
@@ -35,6 +35,8 @@ type MoteAvatarProps = {
   blinkToken: number
   winkTokens: WinkTokens
   turnToken: number
+  posePerformanceToken: number
+  posePerformanceActive: boolean
   imageDataUrl?: string | null
 }
 
@@ -93,6 +95,10 @@ type RigMotionValues = {
   perspective: MotionValue<number>
 }
 
+type PerformanceMotionValues = {
+  [Key in keyof FaceRigConfig]: MotionValue<number>
+}
+
 const projectionTransform = (
   values: number[],
   center: { x: number; y: number },
@@ -107,21 +113,32 @@ const projectionTransform = (
     eyeRotation = 0,
     eyeOffsetY = 0,
     perspective = 1,
+    performanceGazeX = 0,
+    performanceGazeY = 0,
+    performanceTurn = 0,
+    performanceEyeSpacing = 0,
+    performanceEyeScale = 0,
+    performanceEyeRotation = 0,
+    performanceEyeOffsetY = 0,
+    performancePerspective = 0,
   ] = values
 
   return projectEye(center, {
-    gazeX,
-    gazeY,
-    turn: turn + demoTurn,
-    eyeSpacing,
-    eyeScale,
-    eyeRotation,
-    eyeOffsetY,
-    perspective,
+    gazeX: gazeX + performanceGazeX,
+    gazeY: gazeY + performanceGazeY,
+    turn: turn + demoTurn + performanceTurn,
+    eyeSpacing: eyeSpacing + performanceEyeSpacing,
+    eyeScale: eyeScale + performanceEyeScale,
+    eyeRotation: eyeRotation + performanceEyeRotation,
+    eyeOffsetY: eyeOffsetY + performanceEyeOffsetY,
+    perspective: perspective + performancePerspective,
   })
 }
 
-const rigInputs = (values: RigMotionValues) => [
+const rigInputs = (
+  values: RigMotionValues,
+  performance: PerformanceMotionValues,
+) => [
   values.gazeX,
   values.gazeY,
   values.turn,
@@ -131,6 +148,14 @@ const rigInputs = (values: RigMotionValues) => [
   values.eyeRotation,
   values.eyeOffsetY,
   values.perspective,
+  performance.gazeX,
+  performance.gazeY,
+  performance.turn,
+  performance.eyeSpacing,
+  performance.eyeScale,
+  performance.eyeRotation,
+  performance.eyeOffsetY,
+  performance.perspective,
 ]
 
 export const MoteAvatar = memo(function MoteAvatar({
@@ -145,11 +170,43 @@ export const MoteAvatar = memo(function MoteAvatar({
   blinkToken,
   winkTokens,
   turnToken,
+  posePerformanceToken,
+  posePerformanceActive,
   imageDataUrl,
 }: MoteAvatarProps) {
   const shouldReduceMotion = useReducedMotion()
   const [autoBlink, setAutoBlink] = useState(0)
   const demoTurn = useMotionValue(0)
+  const performanceGazeX = useMotionValue(0)
+  const performanceGazeY = useMotionValue(0)
+  const performanceTurn = useMotionValue(0)
+  const performanceEyeSpacing = useMotionValue(0)
+  const performanceEyeScale = useMotionValue(0)
+  const performanceEyeRotation = useMotionValue(0)
+  const performanceEyeOffsetY = useMotionValue(0)
+  const performancePerspective = useMotionValue(0)
+  const performanceValues = useMemo<PerformanceMotionValues>(
+    () => ({
+      gazeX: performanceGazeX,
+      gazeY: performanceGazeY,
+      turn: performanceTurn,
+      eyeSpacing: performanceEyeSpacing,
+      eyeScale: performanceEyeScale,
+      eyeRotation: performanceEyeRotation,
+      eyeOffsetY: performanceEyeOffsetY,
+      perspective: performancePerspective,
+    }),
+    [
+      performanceEyeOffsetY,
+      performanceEyeRotation,
+      performanceEyeScale,
+      performanceEyeSpacing,
+      performanceGazeX,
+      performanceGazeY,
+      performancePerspective,
+      performanceTurn,
+    ],
+  )
   const rigValues: RigMotionValues = {
     gazeX: useRigSpring(faceRig.gazeX + gaze.x * 0.55),
     gazeY: useRigSpring(faceRig.gazeY + gaze.y * 0.55),
@@ -164,9 +221,38 @@ export const MoteAvatar = memo(function MoteAvatar({
   const clipId = useId().replaceAll(':', '')
   const path = shapeById(shapeId).path
   const eyes = eyeById(eyeStyle)
+  const stateDefinition = avatarStateById(state)
+  const performanceEyes = eyeById(stateDefinition.eyePair[1])
   const preset = MOTION_PRESETS[motionLevel]
   const morphTransition = shouldReduceMotion ? { duration: 0 } : MORPH_SPRING
-  const inputs = rigInputs(rigValues)
+  const performancePaths = useMemo(
+    () => ({
+      left:
+        posePerformanceActive && !shouldReduceMotion
+          ? [eyes.leftPath, performanceEyes.leftPath, eyes.leftPath]
+          : eyes.leftPath,
+      right:
+        posePerformanceActive && !shouldReduceMotion
+          ? [eyes.rightPath, performanceEyes.rightPath, eyes.rightPath]
+          : eyes.rightPath,
+    }),
+    [
+      eyes.leftPath,
+      eyes.rightPath,
+      performanceEyes.leftPath,
+      performanceEyes.rightPath,
+      posePerformanceActive,
+      shouldReduceMotion,
+    ],
+  )
+  const eyePathTransition = posePerformanceActive
+    ? {
+        duration: stateDefinition.performance.durationMs / 1000,
+        times: [...stateDefinition.performance.times],
+        ease: EASE_IN_OUT,
+      }
+    : morphTransition
+  const inputs = rigInputs(rigValues, performanceValues)
   const leftProjection = useTransform(inputs, (values) =>
     projectionTransform(values as number[], eyes.leftCenter),
   )
@@ -221,6 +307,39 @@ export const MoteAvatar = memo(function MoteAvatar({
     return () => controls.stop()
   }, [demoTurn, shouldReduceMotion, turnToken])
 
+  useEffect(() => {
+    const controls: Array<{ stop: () => void }> = []
+    const resetPerformance = () => {
+      for (const value of Object.values(performanceValues)) value.set(0)
+    }
+
+    resetPerformance()
+    if (!posePerformanceActive || shouldReduceMotion) return
+
+    for (const [key, frames] of Object.entries(
+      stateDefinition.performance.rigDeltas,
+    ) as [keyof FaceRigConfig, readonly [number, number, number]][]) {
+      controls.push(
+        animate(performanceValues[key], [...frames], {
+          duration: stateDefinition.performance.durationMs / 1000,
+          times: [...stateDefinition.performance.times],
+          ease: EASE_IN_OUT,
+        }),
+      )
+    }
+
+    return () => {
+      for (const control of controls) control.stop()
+      resetPerformance()
+    }
+  }, [
+    posePerformanceActive,
+    posePerformanceToken,
+    performanceValues,
+    shouldReduceMotion,
+    stateDefinition,
+  ])
+
   const blinkKey = `${blinkToken}-${autoBlink}`
   const blinkAnimation = shouldReduceMotion
     ? undefined
@@ -233,6 +352,7 @@ export const MoteAvatar = memo(function MoteAvatar({
       viewBox="0 0 320 320"
       role="img"
       aria-label={`${shapeById(shapeId).label} mote, ${avatarStateById(state).label.toLowerCase()} state`}
+      data-pose-performance={posePerformanceActive ? state : undefined}
       className="h-full w-full overflow-visible drop-shadow-[0_28px_30px_rgba(27,25,20,0.16)]"
       animate={shouldReduceMotion ? undefined : { transform: preset.transform }}
       transition={{
@@ -315,10 +435,11 @@ export const MoteAvatar = memo(function MoteAvatar({
               }}
             >
               <motion.path
+                key={`left-performance-${posePerformanceToken}`}
                 initial={false}
-                animate={{ d: eyes.leftPath, fill: eyeColor }}
+                animate={{ d: performancePaths.left, fill: eyeColor }}
                 transition={{
-                  d: morphTransition,
+                  d: eyePathTransition,
                   fill: { duration: 0.2, ease: EASE_OUT },
                 }}
               />
@@ -362,10 +483,11 @@ export const MoteAvatar = memo(function MoteAvatar({
               }}
             >
               <motion.path
+                key={`right-performance-${posePerformanceToken}`}
                 initial={false}
-                animate={{ d: eyes.rightPath, fill: eyeColor }}
+                animate={{ d: performancePaths.right, fill: eyeColor }}
                 transition={{
-                  d: morphTransition,
+                  d: eyePathTransition,
                   fill: { duration: 0.2, ease: EASE_OUT },
                 }}
               />
