@@ -52,7 +52,7 @@ describe('Mote Studio', () => {
       'aria-selected',
       'true',
     )
-    expect(await screen.findByText('Face pose')).toBeInTheDocument()
+    expect(await screen.findByText('Face performance')).toBeInTheDocument()
   })
 
   it('applies a state pose and exposes continuous face controls', () => {
@@ -68,6 +68,9 @@ describe('Mote Studio', () => {
     expect(document.querySelector('[data-pose-performance="thinking"]')).toBe(
       document.querySelector('svg[role="img"]'),
     )
+    expect(
+      document.querySelector('[data-rig-live-meter="turn"]'),
+    ).toBeInTheDocument()
     expect(screen.getByRole('slider', { name: 'Turn' })).toHaveValue('-14')
 
     fireEvent.change(screen.getByRole('slider', { name: 'Spacing' }), {
@@ -84,7 +87,9 @@ describe('Mote Studio', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('tab', { name: 'rig' }))
 
-    expect(screen.getByRole('group', { name: 'Pose' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('group', { name: 'Performance' }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Surprised:/ })).toBeVisible()
     expect(screen.getByRole('button', { name: /Focused:/ })).toBeVisible()
     expect(screen.getByRole('button', { name: /Shy:/ })).toBeVisible()

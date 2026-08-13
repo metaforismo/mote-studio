@@ -39,7 +39,8 @@ const faceRigSchema = z.object({
 
 const rigPerformanceSchema = z.object({
   durationMs: z.number().int().positive(),
-  times: z.tuple([z.number(), z.number(), z.number()]),
+  times: z.array(z.number().min(0).max(1)).min(2),
+  eyeSequence: z.array(eyeIdSchema).min(2),
   rigDeltas: z.partialRecord(
     z.enum([
       'gazeX',
@@ -51,7 +52,7 @@ const rigPerformanceSchema = z.object({
       'eyeOffsetY',
       'perspective',
     ]),
-    z.tuple([z.number(), z.number(), z.number()]),
+    z.array(z.number()).min(2),
   ),
 })
 

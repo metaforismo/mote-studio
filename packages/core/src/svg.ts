@@ -76,26 +76,52 @@ const createAnimationStyle = (
   const values = animationValues[motion]
   const stateDefinition = avatarStateById(state)
   const rigFrames = performanceRigFrames(stateDefinition, normalizedFace)
-  const middleRig = rigFrames[1] ?? normalizedFace
   const baseLeft = projectEye(baseEyes.leftCenter, normalizedFace)
   const baseRight = projectEye(baseEyes.rightCenter, normalizedFace)
-  const middleLeft = projectEye(baseEyes.leftCenter, middleRig)
-  const middleRight = projectEye(baseEyes.rightCenter, middleRig)
-  const alternateEyes = eyeById(stateDefinition.eyePair[1])
+  const leftFrames = rigFrames.map((frame) =>
+    projectEye(baseEyes.leftCenter, frame),
+  )
+  const rightFrames = rigFrames.map((frame) =>
+    projectEye(baseEyes.rightCenter, frame),
+  )
+  const expressionFrames = stateDefinition.performance.eyeSequence.map(
+    (eyeId, index, sequence) =>
+      index === 0 || index === sequence.length - 1 ? baseEyes : eyeById(eyeId),
+  )
   const cycleMs = Math.max(
     stateDefinition.cadenceMs,
     stateDefinition.performance.durationMs,
-  )
-  const middlePercent = percentage(
-    (stateDefinition.performance.durationMs *
-      stateDefinition.performance.times[1] *
-      100) /
-      cycleMs,
   )
   const returnPercent = percentage(
     (stateDefinition.performance.durationMs * 100) / cycleMs,
   )
   const cycleSeconds = `${cycleMs / 1000}s`
+  const framePercent = (index: number) =>
+    percentage(
+      ((stateDefinition.performance.times[index] ?? 0) *
+        stateDefinition.performance.durationMs *
+        100) /
+        cycleMs,
+    )
+  const projectionFrames = (
+    frames: ReturnType<typeof projectEye>[],
+    base: ReturnType<typeof projectEye>,
+  ) =>
+    `${frames
+      .map(
+        (frame, index) =>
+          `${framePercent(index)}%{transform:${frame.cssTransform};opacity:${frame.opacity}}`,
+      )
+      .join('')}100%{transform:${base.cssTransform};opacity:${base.opacity}}`
+  const expressionKeyframes = (side: 'left' | 'right') =>
+    `${expressionFrames
+      .map(
+        (eyes, index) =>
+          `${framePercent(index)}%{d:path("${side === 'left' ? eyes.leftPath : eyes.rightPath}")}`,
+      )
+      .join(
+        '',
+      )}${returnPercent}%{d:path("${side === 'left' ? baseEyes.leftPath : baseEyes.rightPath}")}100%{d:path("${side === 'left' ? baseEyes.leftPath : baseEyes.rightPath}")}`
 
   return `<style>
 @media (prefers-reduced-motion:no-preference){
@@ -109,10 +135,10 @@ const createAnimationStyle = (
 }
 @keyframes mote-idle{0%,100%{transform:${values.end}}50%{transform:${values.middle}}}
 @keyframes mote-blink{0%,44%,48%,100%{transform:scaleY(1)}46%{transform:scaleY(.08)}}
-@keyframes ${rootId}-left-rig{0%,${returnPercent}%,100%{transform:${baseLeft.cssTransform};opacity:${baseLeft.opacity}}${middlePercent}%{transform:${middleLeft.cssTransform};opacity:${middleLeft.opacity}}}
-@keyframes ${rootId}-right-rig{0%,${returnPercent}%,100%{transform:${baseRight.cssTransform};opacity:${baseRight.opacity}}${middlePercent}%{transform:${middleRight.cssTransform};opacity:${middleRight.opacity}}}
-@keyframes ${rootId}-left-expression{0%,${returnPercent}%,100%{d:path("${baseEyes.leftPath}")} ${middlePercent}%{d:path("${alternateEyes.leftPath}")}}
-@keyframes ${rootId}-right-expression{0%,${returnPercent}%,100%{d:path("${baseEyes.rightPath}")} ${middlePercent}%{d:path("${alternateEyes.rightPath}")}}
+@keyframes ${rootId}-left-rig{${projectionFrames(leftFrames, baseLeft)}}
+@keyframes ${rootId}-right-rig{${projectionFrames(rightFrames, baseRight)}}
+@keyframes ${rootId}-left-expression{${expressionKeyframes('left')}}
+@keyframes ${rootId}-right-expression{${expressionKeyframes('right')}}
 </style>`
 }
 

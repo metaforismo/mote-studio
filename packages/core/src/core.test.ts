@@ -45,16 +45,31 @@ describe('Mote core', () => {
     expect(
       AVATAR_STATES.every(
         (state) =>
-          state.performance.durationMs >= 850 &&
-          state.performance.durationMs <= 1650 &&
+          state.performance.durationMs >= 1400 &&
+          state.performance.durationMs <= 2400 &&
+          state.performance.times.length >= 4 &&
+          state.performance.times.length <= 5 &&
+          state.performance.eyeSequence.length ===
+            state.performance.times.length &&
           Object.keys(state.performance.rigDeltas).length >= 2,
       ),
     ).toBe(true)
     for (const state of AVATAR_STATES) {
-      const [start, middle, end] = performanceRigFrames(state)
+      const frames = performanceRigFrames(state)
+      const start = frames[0]
+      const end = frames.at(-1)
       expect(start).toEqual(state.rig)
       expect(end).toEqual(state.rig)
-      expect(middle).not.toEqual(state.rig)
+      expect(
+        frames
+          .slice(1, -1)
+          .some((frame) => JSON.stringify(frame) !== JSON.stringify(state.rig)),
+      ).toBe(true)
+      for (const channel of Object.values(state.performance.rigDeltas)) {
+        expect(channel).toHaveLength(state.performance.times.length)
+        expect(channel?.[0]).toBe(0)
+        expect(channel?.at(-1)).toBe(0)
+      }
     }
     expect(centered.opacity).toBe(1)
     expect(turned.translateX).not.toBe(centered.translateX)
@@ -113,6 +128,7 @@ describe('Mote core', () => {
     expect(svg).toContain('-left-rig')
     expect(svg).toContain('-left-expression')
     expect(svg).toContain('d:path(')
+    expect(svg.match(/%\{d:path\(/g)?.length).toBeGreaterThan(5)
     expect(svg).toContain('aria-labelledby=')
     expect(svg).toContain(eyeById('joyful').leftPath)
     expect(svg).toMatch(/-eyes" fill="#[0-9a-f]+" clip-path="url\(#.+-clip\)"/)
