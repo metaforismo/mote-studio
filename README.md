@@ -17,7 +17,7 @@ The interface was built from scratch around a dark tool dock and a bright live c
 - Eleven contrast-aware colors and adaptive eye color
 - Calm, playful, and kinetic motion personalities
 - Automatic morph cycle with a visible pause control
-- Eight data-driven states with expression pools and state-specific cadence
+- Eight data-driven face poses, each pairing two expressions in a replayable A → B → A performance
 - Pointer-following gaze, spring-based expression changes, click-to-blink, and independent winks
 - A procedural face rig with visual pose presets, a two-dimensional gaze pad, essential sliders, and progressive fine-tuning
 - Silhouette-aware eye clipping in the live preview, pose thumbnails, and exported SVG
@@ -125,11 +125,11 @@ Every silhouette resolves to a closed ring of 32 points and every eye to a 16-po
 
 The fourteen-shape set was redrawn as code-native geometry after reference-only silhouette studies. Cloud now uses a dominant central crown, soft side lobes, and a grounded baseline; Brain is a separate asymmetric cortical silhouette with edge lobes rather than a wavy capsule. No generated bitmap is included in the application, exports, or package output.
 
-Ambient movement is isolated from body morphing, expression morphing, gaze, blinking, and face turning. The rig follows the supplied reference's spherical projection: each eye travels around a virtual face, compresses with depth, and is clipped against the live silhouette as it reaches an edge. The same clip is embedded in portable SVG exports, so extreme poses never draw outside the character. All eight rig values are continuous and retarget interruptible springs from the pose already on screen. Twenty-five contours and data-driven state pools make the expression space extensible without adding animation branches. Automatic expression changes run at a restrained, state-specific cadence and stop under `prefers-reduced-motion`. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
+Ambient movement is isolated from body morphing, expression morphing, gaze, blinking, and face turning. The rig follows the supplied reference's spherical projection: each eye travels around a virtual face, compresses with depth, and is clipped against the live silhouette as it reaches an edge. The same clip is embedded in portable SVG exports, so extreme poses never draw outside the character. All eight rig values are continuous and retarget interruptible springs from the pose already on screen. Each face pose combines a curated pair of compatible eye contours and performs a one-shot A → B → A path morph when clicked; clicking the active pose replays it. Twenty-five contours and data-driven state pools make the expression space extensible without adding animation branches. Automatic expression changes pause during a pose performance, otherwise run at a restrained, state-specific cadence, and stop under `prefers-reduced-motion`. Each layer animates only transforms, opacity, color, or the SVG path itself; layout properties are never animated.
 
 ## Accessibility
 
-The studio uses semantic `fieldset` groups, labeled controls, roving keyboard tabs, live announcements, visible focus states, and contrast-tested text. `prefers-reduced-motion` disables ambient movement and automatic morphing while preserving the editing workflow.
+The studio uses semantic `fieldset` groups, labeled controls, roving keyboard tabs, live announcements, visible focus states, and contrast-tested text. `prefers-reduced-motion` disables ambient movement, automatic morphing, and pose performances while preserving the editing workflow. Keyboard pose selection is immediate rather than animated, so focus and state changes never wait on motion.
 
 ## Project status
 

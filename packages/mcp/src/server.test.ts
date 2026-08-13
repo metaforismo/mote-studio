@@ -44,7 +44,12 @@ describe('Mote MCP server', () => {
         expect.objectContaining({ id: 'leaf', label: 'Leaf' }),
       ]),
       states: expect.arrayContaining([
-        expect.objectContaining({ id: 'thinking', eyePool: expect.any(Array) }),
+        expect.objectContaining({
+          id: 'thinking',
+          eyePair: ['thinking', 'suspicious'],
+          performanceMs: 1350,
+          eyePool: expect.any(Array),
+        }),
       ]),
       eyes: expect.arrayContaining([
         expect.objectContaining({ id: 'neutral', referenceIndex: 0 }),

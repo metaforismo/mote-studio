@@ -38,6 +38,12 @@ describe('Mote core', () => {
     })
 
     expect(AVATAR_STATES).toHaveLength(8)
+    expect(AVATAR_STATES.every((state) => state.eyePair.length === 2)).toBe(
+      true,
+    )
+    expect(AVATAR_STATES.every((state) => state.performanceMs === 1350)).toBe(
+      true,
+    )
     expect(centered.opacity).toBe(1)
     expect(turned.translateX).not.toBe(centered.translateX)
     expect(turned.scaleX).toBeLessThan(centered.scaleX)

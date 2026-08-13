@@ -1,4 +1,5 @@
 import { ArrowsClockwise, Eye, SlidersHorizontal } from '@phosphor-icons/react'
+import { motion } from 'motion/react'
 import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import {
   AVATAR_STATES,
@@ -99,10 +100,13 @@ type FaceRigPanelProps = {
   shapeId: ShapeId
   color: string
   eyeColor: string
-  onSelectState: (state: AvatarStateId) => void
+  onSelectState: (state: AvatarStateId, animate: boolean) => void
   onChange: (key: keyof FaceRigConfig, value: number) => void
   onWink: (side: WinkSide) => void
   onResetPose: () => void
+  performanceState: AvatarStateId | null
+  performanceToken: number
+  reduceMotion: boolean
 }
 
 function StatePreview({
@@ -110,16 +114,23 @@ function StatePreview({
   shapeId,
   color,
   eyeColor,
+  animatePerformance,
+  performanceToken,
+  reduceMotion,
 }: {
   stateId: AvatarStateId
   shapeId: ShapeId
   color: string
   eyeColor: string
+  animatePerformance: boolean
+  performanceToken: number
+  reduceMotion: boolean
 }) {
   const definition = AVATAR_STATES.find((candidate) => candidate.id === stateId)
   if (!definition) return null
 
-  const eyes = eyeById(definition.eyePool[0] ?? 'neutral')
+  const eyes = eyeById(definition.eyePair[0])
+  const alternateEyes = eyeById(definition.eyePair[1])
   const shapePath = shapeById(shapeId).path
   const left = projectEye(eyes.leftCenter, definition.rig)
   const right = projectEye(eyes.rightCenter, definition.rig)
@@ -135,10 +146,38 @@ function StatePreview({
       <path d={shapePath} fill={color} />
       <g fill={eyeColor} clipPath={`url(#${clipId})`}>
         <g opacity={left.opacity} transform={left.svgTransform}>
-          <path d={eyes.leftPath} />
+          <motion.path
+            key={`left-${performanceToken}`}
+            initial={false}
+            animate={{
+              d:
+                animatePerformance && !reduceMotion
+                  ? [eyes.leftPath, alternateEyes.leftPath, eyes.leftPath]
+                  : eyes.leftPath,
+            }}
+            transition={{
+              duration: definition.performanceMs / 1000,
+              times: [0, 0.46, 1],
+              ease: [0.77, 0, 0.175, 1],
+            }}
+          />
         </g>
         <g opacity={right.opacity} transform={right.svgTransform}>
-          <path d={eyes.rightPath} />
+          <motion.path
+            key={`right-${performanceToken}`}
+            initial={false}
+            animate={{
+              d:
+                animatePerformance && !reduceMotion
+                  ? [eyes.rightPath, alternateEyes.rightPath, eyes.rightPath]
+                  : eyes.rightPath,
+            }}
+            transition={{
+              duration: definition.performanceMs / 1000,
+              times: [0, 0.46, 1],
+              ease: [0.77, 0, 0.175, 1],
+            }}
+          />
         </g>
       </g>
     </svg>
@@ -195,6 +234,9 @@ export function FaceRigPanel({
   onChange,
   onWink,
   onResetPose,
+  performanceState,
+  performanceToken,
+  reduceMotion,
 }: FaceRigPanelProps) {
   const padRef = useRef<HTMLButtonElement>(null)
 
@@ -249,12 +291,14 @@ export function FaceRigPanel({
             Face pose
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-1 text-[0.62rem] font-medium text-[#9da097]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#19a976]" />
-            Live
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${performanceState ? 'bg-[#f56a16] motion-safe:animate-pulse' : 'bg-[#19a976]'}`}
+            />
+            {performanceState ? 'Performing' : 'Live'}
           </span>
         </div>
         <p className="mt-1.5 text-xs leading-relaxed text-[#92958c]">
-          Choose a mood, then drag the dot to direct the eyes.
+          Each pose morphs between two expressions. Click again to replay.
         </p>
       </div>
 
@@ -270,16 +314,35 @@ export function FaceRigPanel({
               aria-label={`${definition.label}: ${definition.description}`}
               aria-pressed={state === definition.id}
               title={definition.description}
-              onClick={() => onSelectState(definition.id)}
-              className="group flex min-w-0 flex-col items-center gap-1 rounded-xl border border-white/[0.07] bg-[#1c1d19] px-1 py-2 text-[0.6rem] font-medium text-[#9da097] transition-[border-color,background-color,color,transform] hover:border-white/[0.15] hover:text-[#e8e8e2] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.97] aria-pressed:border-[#f56a16]/70 aria-pressed:bg-[#f56a16]/10 aria-pressed:text-[#f2f0e8]"
+              onClick={(event) =>
+                onSelectState(definition.id, event.detail > 0)
+              }
+              className="group relative flex min-w-0 flex-col items-center gap-1 overflow-hidden rounded-xl border border-white/[0.07] bg-[#1c1d19] px-1 py-2 text-[0.6rem] font-medium text-[#9da097] transition-[border-color,background-color,color,transform] hover:border-white/[0.15] hover:text-[#e8e8e2] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.97] aria-pressed:border-[#f56a16]/70 aria-pressed:bg-[#f56a16]/10 aria-pressed:text-[#f2f0e8]"
             >
               <StatePreview
                 stateId={definition.id}
                 shapeId={shapeId}
                 color={color}
                 eyeColor={eyeColor}
+                animatePerformance={performanceState === definition.id}
+                performanceToken={performanceToken}
+                reduceMotion={reduceMotion}
               />
               <span>{POSE_SHORT_LABELS[definition.id]}</span>
+              {performanceState === definition.id && !reduceMotion ? (
+                <span className="absolute inset-x-2 bottom-0 h-px overflow-hidden rounded-full bg-white/10">
+                  <motion.span
+                    key={performanceToken}
+                    className="block h-full w-full origin-left bg-[#f56a16]"
+                    initial={{ transform: 'scaleX(0)' }}
+                    animate={{ transform: 'scaleX(1)' }}
+                    transition={{
+                      duration: definition.performanceMs / 1000,
+                      ease: 'linear',
+                    }}
+                  />
+                </span>
+              ) : null}
             </button>
           ))}
         </div>

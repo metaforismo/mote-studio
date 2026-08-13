@@ -40,6 +40,10 @@ export type AvatarStateDefinition = {
   id: AvatarStateId
   label: string
   description: string
+  /** Curated A/B pair used by the one-shot eye performance. */
+  eyePair: readonly [EyeId, EyeId]
+  /** Duration of the A → B → A performance. */
+  performanceMs: number
   eyePool: readonly EyeId[]
   cadenceMs: number
   rig: FaceRigConfig
@@ -71,6 +75,7 @@ const state = (
   id: AvatarStateId,
   label: string,
   description: string,
+  eyePair: readonly [EyeId, EyeId],
   eyePool: readonly EyeId[],
   cadenceMs: number,
   rig: Partial<FaceRigConfig> = {},
@@ -78,6 +83,8 @@ const state = (
   id,
   label,
   description,
+  eyePair,
+  performanceMs: 1350,
   eyePool,
   cadenceMs,
   rig: { ...DEFAULT_FACE_RIG, ...rig },
@@ -85,13 +92,15 @@ const state = (
 
 /**
  * States are data, not animation branches. Adding another state only requires
- * a label, an expression pool, a cadence and a target rig pose.
+ * a label, a curated eye pair, an expression pool, a cadence and a target rig
+ * pose.
  */
 export const AVATAR_STATES: AvatarStateDefinition[] = [
   state(
     'idle',
     'Idle',
     'Available and quietly alive',
+    ['neutral', 'soft'],
     ['neutral', 'soft', 'dots'],
     7600,
   ),
@@ -99,6 +108,7 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'listening',
     'Listening',
     'Lifted toward the speaker',
+    ['listening', 'attentive'],
     ['listening', 'attentive', 'neutral'],
     6200,
     { gazeX: 0.12, gazeY: -0.12, eyeRotation: 2, eyeOffsetY: -3 },
@@ -107,6 +117,7 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'thinking',
     'Thinking',
     'Looking up and off-axis',
+    ['thinking', 'suspicious'],
     ['thinking', 'suspicious', 'side-eye'],
     6900,
     { gazeX: 0.34, gazeY: -0.42, turn: -14, eyeRotation: -5 },
@@ -115,6 +126,7 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'searching',
     'Searching',
     'Scanning across the virtual surface',
+    ['searching', 'scanning'],
     ['searching', 'scanning', 'focused'],
     3900,
     { gazeX: 0.5, turn: 24, eyeSpacing: 1.08, perspective: 1.12 },
@@ -123,6 +135,7 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'excited',
     'Excited',
     'Open, bright and emphatic',
+    ['spark', 'joyful'],
     ['spark', 'wide', 'surprised', 'joyful'],
     3400,
     { eyeScale: 1.14, eyeSpacing: 1.08, eyeOffsetY: -4 },
@@ -131,6 +144,7 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'curious',
     'Curious',
     'A gentle inquisitive turn',
+    ['wonder', 'thinking'],
     ['wonder', 'thinking', 'attentive'],
     5700,
     { gazeY: -0.2, turn: 12, eyeSpacing: 1.04, eyeRotation: 3 },
@@ -139,6 +153,7 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'playful',
     'Playful',
     'Asymmetric and ready to react',
+    ['skeptical', 'joyful'],
     ['skeptical', 'joyful', 'side-eye', 'spark'],
     4100,
     { gazeX: -0.18, turn: -9, eyeRotation: -4, eyeScale: 1.05 },
@@ -147,6 +162,7 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'sleeping',
     'Sleeping',
     'Low, still and nearly closed',
+    ['closed', 'drowsy'],
     ['closed', 'drowsy', 'sleepy'],
     9800,
     { gazeY: 0.2, eyeScale: 0.9, eyeOffsetY: 7, perspective: 0.7 },

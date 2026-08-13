@@ -112,6 +112,8 @@ export const createMoteServer = () => {
             id: stateSchema,
             label: z.string(),
             description: z.string(),
+            eyePair: z.tuple([eyeIdSchema, eyeIdSchema]),
+            performanceMs: z.number().int().positive(),
             eyePool: z.array(eyeIdSchema),
             cadenceMs: z.number().int().positive(),
             rig: faceRigSchema,

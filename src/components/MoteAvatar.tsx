@@ -7,7 +7,7 @@ import {
   useTransform,
   type MotionValue,
 } from 'motion/react'
-import { memo, useEffect, useId, useState } from 'react'
+import { memo, useEffect, useId, useMemo, useState } from 'react'
 import {
   avatarStateById,
   eyeById,
@@ -35,6 +35,8 @@ type MoteAvatarProps = {
   blinkToken: number
   winkTokens: WinkTokens
   turnToken: number
+  posePerformanceToken: number
+  posePerformanceActive: boolean
   imageDataUrl?: string | null
 }
 
@@ -145,6 +147,8 @@ export const MoteAvatar = memo(function MoteAvatar({
   blinkToken,
   winkTokens,
   turnToken,
+  posePerformanceToken,
+  posePerformanceActive,
   imageDataUrl,
 }: MoteAvatarProps) {
   const shouldReduceMotion = useReducedMotion()
@@ -164,8 +168,37 @@ export const MoteAvatar = memo(function MoteAvatar({
   const clipId = useId().replaceAll(':', '')
   const path = shapeById(shapeId).path
   const eyes = eyeById(eyeStyle)
+  const stateDefinition = avatarStateById(state)
+  const performanceEyes = eyeById(stateDefinition.eyePair[1])
   const preset = MOTION_PRESETS[motionLevel]
   const morphTransition = shouldReduceMotion ? { duration: 0 } : MORPH_SPRING
+  const performancePaths = useMemo(
+    () => ({
+      left:
+        posePerformanceActive && !shouldReduceMotion
+          ? [eyes.leftPath, performanceEyes.leftPath, eyes.leftPath]
+          : eyes.leftPath,
+      right:
+        posePerformanceActive && !shouldReduceMotion
+          ? [eyes.rightPath, performanceEyes.rightPath, eyes.rightPath]
+          : eyes.rightPath,
+    }),
+    [
+      eyes.leftPath,
+      eyes.rightPath,
+      performanceEyes.leftPath,
+      performanceEyes.rightPath,
+      posePerformanceActive,
+      shouldReduceMotion,
+    ],
+  )
+  const eyePathTransition = posePerformanceActive
+    ? {
+        duration: stateDefinition.performanceMs / 1000,
+        times: [0, 0.46, 1],
+        ease: EASE_IN_OUT,
+      }
+    : morphTransition
   const inputs = rigInputs(rigValues)
   const leftProjection = useTransform(inputs, (values) =>
     projectionTransform(values as number[], eyes.leftCenter),
@@ -233,6 +266,7 @@ export const MoteAvatar = memo(function MoteAvatar({
       viewBox="0 0 320 320"
       role="img"
       aria-label={`${shapeById(shapeId).label} mote, ${avatarStateById(state).label.toLowerCase()} state`}
+      data-pose-performance={posePerformanceActive ? state : undefined}
       className="h-full w-full overflow-visible drop-shadow-[0_28px_30px_rgba(27,25,20,0.16)]"
       animate={shouldReduceMotion ? undefined : { transform: preset.transform }}
       transition={{
@@ -315,10 +349,11 @@ export const MoteAvatar = memo(function MoteAvatar({
               }}
             >
               <motion.path
+                key={`left-performance-${posePerformanceToken}`}
                 initial={false}
-                animate={{ d: eyes.leftPath, fill: eyeColor }}
+                animate={{ d: performancePaths.left, fill: eyeColor }}
                 transition={{
-                  d: morphTransition,
+                  d: eyePathTransition,
                   fill: { duration: 0.2, ease: EASE_OUT },
                 }}
               />
@@ -362,10 +397,11 @@ export const MoteAvatar = memo(function MoteAvatar({
               }}
             >
               <motion.path
+                key={`right-performance-${posePerformanceToken}`}
                 initial={false}
-                animate={{ d: eyes.rightPath, fill: eyeColor }}
+                animate={{ d: performancePaths.right, fill: eyeColor }}
                 transition={{
-                  d: morphTransition,
+                  d: eyePathTransition,
                   fill: { duration: 0.2, ease: EASE_OUT },
                 }}
               />

@@ -58,9 +58,16 @@ describe('Mote Studio', () => {
   it('applies a state pose and exposes continuous face controls', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('tab', { name: 'rig' }))
-    fireEvent.click(screen.getByRole('button', { name: /Thinking:/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Thinking:/ }), {
+      detail: 1,
+    })
 
-    expect(screen.getByText('Thinking state selected')).toBeInTheDocument()
+    expect(
+      screen.getByText('Thinking eye performance playing'),
+    ).toBeInTheDocument()
+    expect(document.querySelector('[data-pose-performance="thinking"]')).toBe(
+      document.querySelector('svg[role="img"]'),
+    )
     expect(screen.getByRole('slider', { name: 'Turn' })).toHaveValue('-14')
 
     fireEvent.change(screen.getByRole('slider', { name: 'Spacing' }), {
@@ -71,6 +78,17 @@ describe('Mote Studio', () => {
     const gazePad = screen.getByRole('button', { name: /Eye direction:/ })
     fireEvent.keyDown(gazePad, { key: 'Home' })
     expect(gazePad).toHaveAccessibleName(/center, middle/)
+  })
+
+  it('keeps keyboard-initiated pose changes instant', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('tab', { name: 'rig' }))
+    fireEvent.click(screen.getByRole('button', { name: /Listening:/ }), {
+      detail: 0,
+    })
+
+    expect(screen.getByText('Listening state selected')).toBeInTheDocument()
+    expect(document.querySelector('[data-pose-performance]')).toBeNull()
   })
 
   it('clips projected eyes to the current silhouette', () => {

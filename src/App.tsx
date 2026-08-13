@@ -103,10 +103,14 @@ function App() {
     right: 0,
   })
   const [turnToken, setTurnToken] = useState(0)
+  const [posePerformanceToken, setPosePerformanceToken] = useState(0)
+  const [performanceState, setPerformanceState] =
+    useState<AvatarStateId | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [exportState, setExportState] = useState<ExportState>('idle')
   const [announcement, setAnnouncement] = useState('Mote ready')
   const generateTimer = useRef<number | undefined>(undefined)
+  const posePerformanceTimer = useRef<number | undefined>(undefined)
   const shouldReduceMotion = useReducedMotion() === true
   const isMorphing = config.autoMorph && !shouldReduceMotion
   const eyeColor = getEyeColor(config.color)
@@ -118,6 +122,8 @@ function App() {
   useEffect(
     () => () => {
       if (generateTimer.current) window.clearTimeout(generateTimer.current)
+      if (posePerformanceTimer.current)
+        window.clearTimeout(posePerformanceTimer.current)
     },
     [],
   )
@@ -140,7 +146,7 @@ function App() {
   }, [config.autoMorph, shouldReduceMotion])
 
   useEffect(() => {
-    if (!config.autoEyes || shouldReduceMotion) return
+    if (!config.autoEyes || shouldReduceMotion || performanceState) return
 
     const currentState = avatarStateById(config.state)
     const motionFactor = { calm: 1.18, playful: 1, kinetic: 0.72 }[
@@ -158,7 +164,13 @@ function App() {
     }, cadence)
 
     return () => window.clearInterval(interval)
-  }, [config.autoEyes, config.motion, config.state, shouldReduceMotion])
+  }, [
+    config.autoEyes,
+    config.motion,
+    config.state,
+    performanceState,
+    shouldReduceMotion,
+  ])
 
   const svgSource = useMemo(
     () =>
@@ -198,19 +210,36 @@ function App() {
 
   const selectEyes = (eyeStyle: EyeId) => {
     const eyes = EYES.find((entry) => entry.id === eyeStyle)
+    if (posePerformanceTimer.current)
+      window.clearTimeout(posePerformanceTimer.current)
     setConfig((current) => ({ ...current, eyeStyle }))
+    setPerformanceState(null)
     setAnnouncement(`${eyes?.label ?? 'Eye'} expression selected`)
   }
 
-  const selectState = (stateId: AvatarStateId) => {
+  const selectState = (stateId: AvatarStateId, animatePerformance: boolean) => {
     const state = avatarStateById(stateId)
+    const shouldAnimatePerformance = animatePerformance && !shouldReduceMotion
+    if (posePerformanceTimer.current)
+      window.clearTimeout(posePerformanceTimer.current)
     setConfig((current) => ({
       ...current,
       state: stateId,
-      eyeStyle: state.eyePool[0] ?? current.eyeStyle,
+      eyeStyle: state.eyePair[0],
       face: state.rig,
     }))
-    setAnnouncement(`${state.label} state selected`)
+    setPosePerformanceToken((value) => value + 1)
+    setPerformanceState(shouldAnimatePerformance ? stateId : null)
+    if (shouldAnimatePerformance) {
+      posePerformanceTimer.current = window.setTimeout(() => {
+        setPerformanceState(null)
+      }, state.performanceMs)
+    }
+    setAnnouncement(
+      shouldAnimatePerformance
+        ? `${state.label} eye performance playing`
+        : `${state.label} state selected`,
+    )
   }
 
   const updateFaceRig = (key: keyof FaceRigConfig, value: number) => {
@@ -230,6 +259,9 @@ function App() {
 
   const generateMote = () => {
     if (isGenerating) return
+    if (posePerformanceTimer.current)
+      window.clearTimeout(posePerformanceTimer.current)
+    setPerformanceState(null)
     setIsGenerating(true)
     setAnnouncement('Generating a new mote')
     if (generateTimer.current) window.clearTimeout(generateTimer.current)
@@ -270,10 +302,13 @@ function App() {
   }
 
   const resetAll = () => {
+    if (posePerformanceTimer.current)
+      window.clearTimeout(posePerformanceTimer.current)
     setConfig(DEFAULT_CONFIG)
     setUploadedImage(null)
     setGaze({ x: 0, y: 0 })
     setWinkTokens({ left: 0, right: 0 })
+    setPerformanceState(null)
     setExportState('idle')
     setAnnouncement('Studio reset to defaults')
   }
@@ -413,6 +448,8 @@ function App() {
                 blinkToken={blinkToken}
                 winkTokens={winkTokens}
                 turnToken={turnToken}
+                posePerformanceToken={posePerformanceToken}
+                posePerformanceActive={performanceState === config.state}
                 imageDataUrl={uploadedImage?.dataUrl}
               />
             </button>
@@ -561,13 +598,17 @@ function App() {
                     onSelectState={selectState}
                     onChange={updateFaceRig}
                     onWink={wink}
+                    performanceState={performanceState}
+                    performanceToken={posePerformanceToken}
+                    reduceMotion={shouldReduceMotion}
                     onResetPose={() => {
+                      if (posePerformanceTimer.current)
+                        window.clearTimeout(posePerformanceTimer.current)
+                      setPerformanceState(null)
                       setConfig((current) => ({
                         ...current,
                         state: 'idle',
-                        eyeStyle:
-                          avatarStateById('idle').eyePool[0] ??
-                          current.eyeStyle,
+                        eyeStyle: avatarStateById('idle').eyePair[0],
                         face: DEFAULT_FACE_RIG,
                       }))
                       setAnnouncement('Face pose reset')
