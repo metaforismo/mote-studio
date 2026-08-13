@@ -9,6 +9,10 @@ export const AVATAR_STATE_IDS = [
   'curious',
   'playful',
   'sleeping',
+  'surprised',
+  'focused',
+  'shy',
+  'doubtful',
 ] as const
 
 export type AvatarStateId = (typeof AVATAR_STATE_IDS)[number]
@@ -36,14 +40,25 @@ export type FaceRigOverrides = {
   [Key in keyof FaceRigConfig]?: FaceRigConfig[Key] | undefined
 }
 
+export type FaceRigPerformance = {
+  /** Total duration of this one-shot performance. */
+  durationMs: number
+  /** Normalized timing shared by every rig channel. */
+  times: readonly [number, number, number]
+  /** Additive A → B → A rig motion, relative to the selected pose. */
+  rigDeltas: Partial<{
+    [Key in keyof FaceRigConfig]: readonly [number, number, number]
+  }>
+}
+
 export type AvatarStateDefinition = {
   id: AvatarStateId
   label: string
   description: string
   /** Curated A/B pair used by the one-shot eye performance. */
   eyePair: readonly [EyeId, EyeId]
-  /** Duration of the A → B → A performance. */
-  performanceMs: number
+  /** Eye morph and procedural rig choreography. */
+  performance: FaceRigPerformance
   eyePool: readonly EyeId[]
   cadenceMs: number
   rig: FaceRigConfig
@@ -71,11 +86,27 @@ export const DEFAULT_FACE_RIG: FaceRigConfig = {
   perspective: 1,
 }
 
+const PERFORMANCE_DURATIONS: Record<AvatarStateId, number> = {
+  idle: 1200,
+  listening: 1050,
+  thinking: 1500,
+  searching: 1350,
+  excited: 900,
+  curious: 1400,
+  playful: 1000,
+  sleeping: 1650,
+  surprised: 850,
+  focused: 1250,
+  shy: 1500,
+  doubtful: 1350,
+}
+
 const state = (
   id: AvatarStateId,
   label: string,
   description: string,
   eyePair: readonly [EyeId, EyeId],
+  rigDeltas: FaceRigPerformance['rigDeltas'],
   eyePool: readonly EyeId[],
   cadenceMs: number,
   rig: Partial<FaceRigConfig> = {},
@@ -84,7 +115,11 @@ const state = (
   label,
   description,
   eyePair,
-  performanceMs: 1350,
+  performance: {
+    durationMs: PERFORMANCE_DURATIONS[id],
+    times: [0, 0.46, 1],
+    rigDeltas,
+  },
   eyePool,
   cadenceMs,
   rig: { ...DEFAULT_FACE_RIG, ...rig },
@@ -101,6 +136,7 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'Idle',
     'Available and quietly alive',
     ['neutral', 'soft'],
+    { gazeY: [0, 0.06, 0], eyeScale: [0, 0.04, 0] },
     ['neutral', 'soft', 'dots'],
     7600,
   ),
@@ -109,6 +145,12 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'Listening',
     'Lifted toward the speaker',
     ['listening', 'attentive'],
+    {
+      gazeX: [0, 0.12, 0],
+      turn: [0, 7, 0],
+      eyeSpacing: [0, 0.04, 0],
+      eyeScale: [0, 0.06, 0],
+    },
     ['listening', 'attentive', 'neutral'],
     6200,
     { gazeX: 0.12, gazeY: -0.12, eyeRotation: 2, eyeOffsetY: -3 },
@@ -117,7 +159,13 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'thinking',
     'Thinking',
     'Looking up and off-axis',
-    ['thinking', 'suspicious'],
+    ['thinking', 'wonder'],
+    {
+      gazeX: [0, -0.18, 0],
+      turn: [0, -8, 0],
+      eyeSpacing: [0, -0.04, 0],
+      eyeRotation: [0, -4, 0],
+    },
     ['thinking', 'suspicious', 'side-eye'],
     6900,
     { gazeX: 0.34, gazeY: -0.42, turn: -14, eyeRotation: -5 },
@@ -127,6 +175,12 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'Searching',
     'Scanning across the virtual surface',
     ['searching', 'scanning'],
+    {
+      gazeX: [0, -0.52, 0],
+      turn: [0, -16, 0],
+      eyeSpacing: [0, 0.06, 0],
+      perspective: [0, 0.1, 0],
+    },
     ['searching', 'scanning', 'focused'],
     3900,
     { gazeX: 0.5, turn: 24, eyeSpacing: 1.08, perspective: 1.12 },
@@ -135,7 +189,13 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'excited',
     'Excited',
     'Open, bright and emphatic',
-    ['spark', 'joyful'],
+    ['wide', 'spark'],
+    {
+      gazeY: [0, -0.1, 0],
+      eyeSpacing: [0, 0.08, 0],
+      eyeScale: [0, 0.16, 0],
+      eyeOffsetY: [0, -4, 0],
+    },
     ['spark', 'wide', 'surprised', 'joyful'],
     3400,
     { eyeScale: 1.14, eyeSpacing: 1.08, eyeOffsetY: -4 },
@@ -144,7 +204,13 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'curious',
     'Curious',
     'A gentle inquisitive turn',
-    ['wonder', 'thinking'],
+    ['attentive', 'wonder'],
+    {
+      gazeY: [0, -0.12, 0],
+      turn: [0, 10, 0],
+      eyeSpacing: [0, 0.06, 0],
+      eyeRotation: [0, 5, 0],
+    },
     ['wonder', 'thinking', 'attentive'],
     5700,
     { gazeY: -0.2, turn: 12, eyeSpacing: 1.04, eyeRotation: 3 },
@@ -154,6 +220,12 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'Playful',
     'Asymmetric and ready to react',
     ['skeptical', 'joyful'],
+    {
+      gazeX: [0, 0.34, 0],
+      turn: [0, 16, 0],
+      eyeScale: [0, 0.08, 0],
+      eyeRotation: [0, 12, 0],
+    },
     ['skeptical', 'joyful', 'side-eye', 'spark'],
     4100,
     { gazeX: -0.18, turn: -9, eyeRotation: -4, eyeScale: 1.05 },
@@ -162,12 +234,95 @@ export const AVATAR_STATES: AvatarStateDefinition[] = [
     'sleeping',
     'Sleeping',
     'Low, still and nearly closed',
-    ['closed', 'drowsy'],
+    ['sleepy', 'closed'],
+    {
+      gazeY: [0, 0.15, 0],
+      eyeScale: [0, -0.12, 0],
+      eyeOffsetY: [0, 5, 0],
+      perspective: [0, -0.2, 0],
+    },
     ['closed', 'drowsy', 'sleepy'],
     9800,
     { gazeY: 0.2, eyeScale: 0.9, eyeOffsetY: 7, perspective: 0.7 },
   ),
+  state(
+    'surprised',
+    'Surprised',
+    'A quick open reaction',
+    ['surprised', 'wide'],
+    {
+      gazeY: [0, -0.12, 0],
+      eyeSpacing: [0, 0.1, 0],
+      eyeScale: [0, 0.16, 0],
+      eyeOffsetY: [0, -4, 0],
+    },
+    ['surprised', 'wide', 'spark'],
+    4700,
+    { gazeY: -0.08, eyeSpacing: 1.1, eyeScale: 1.1, eyeOffsetY: -2 },
+  ),
+  state(
+    'focused',
+    'Focused',
+    'Narrowed onto a single target',
+    ['focused', 'determined'],
+    {
+      gazeY: [0, -0.08, 0],
+      eyeSpacing: [0, -0.08, 0],
+      eyeScale: [0, -0.08, 0],
+      eyeRotation: [0, 5, 0],
+    },
+    ['focused', 'determined', 'neutral'],
+    5600,
+    { gazeY: -0.08, eyeSpacing: 0.92, eyeScale: 0.94 },
+  ),
+  state(
+    'shy',
+    'Shy',
+    'A small downward retreat',
+    ['shy', 'uneasy'],
+    {
+      gazeY: [0, 0.14, 0],
+      turn: [0, -8, 0],
+      eyeSpacing: [0, -0.05, 0],
+      eyeScale: [0, -0.08, 0],
+    },
+    ['shy', 'uneasy', 'sleepy'],
+    7300,
+    { gazeX: -0.22, gazeY: 0.28, turn: -10, eyeScale: 0.9, eyeOffsetY: 6 },
+  ),
+  state(
+    'doubtful',
+    'Doubtful',
+    'A measured sideways check',
+    ['side-eye', 'suspicious'],
+    {
+      gazeX: [0, -0.2, 0],
+      turn: [0, 10, 0],
+      eyeSpacing: [0, 0.05, 0],
+      eyeRotation: [0, -3, 0],
+    },
+    ['side-eye', 'suspicious', 'skeptical'],
+    6100,
+    { gazeX: -0.42, turn: 15, eyeRotation: -4 },
+  ),
 ]
+
+export const performanceRigFrames = (
+  definition: AvatarStateDefinition,
+  baseRig: Partial<FaceRigConfig> = definition.rig,
+): FaceRigConfig[] => {
+  const normalizedBase = normalizeFaceRig(baseRig)
+
+  return definition.performance.times.map((_, frameIndex) => {
+    const frame = { ...normalizedBase }
+    for (const key of Object.keys(
+      definition.performance.rigDeltas,
+    ) as (keyof FaceRigConfig)[]) {
+      frame[key] += definition.performance.rigDeltas[key]?.[frameIndex] ?? 0
+    }
+    return normalizeFaceRig(frame)
+  })
+}
 
 export const avatarStateById = (id: AvatarStateId): AvatarStateDefinition => {
   const definition = AVATAR_STATES.find((candidate) => candidate.id === id)

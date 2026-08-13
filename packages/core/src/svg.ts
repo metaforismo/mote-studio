@@ -1,8 +1,10 @@
 import { getEyeColor, normalizeHexColor, type MotionLevel } from './presets.js'
 import { eyeById, type EyeId } from './eyes.js'
 import {
+  avatarStateById,
   DEFAULT_FACE_RIG,
   normalizeFaceRig,
+  performanceRigFrames,
   projectEye,
   type AvatarStateId,
   type FaceRigConfig,
@@ -62,15 +64,55 @@ const animationValues: Record<
   },
 }
 
-const createAnimationStyle = (motion: MotionLevel, rootId: string) => {
+const percentage = (value: number) => Number(value.toFixed(3))
+
+const createAnimationStyle = (
+  motion: MotionLevel,
+  rootId: string,
+  state: AvatarStateId,
+  baseEyes: ReturnType<typeof eyeById>,
+  normalizedFace: FaceRigConfig,
+) => {
   const values = animationValues[motion]
+  const stateDefinition = avatarStateById(state)
+  const rigFrames = performanceRigFrames(stateDefinition, normalizedFace)
+  const middleRig = rigFrames[1] ?? normalizedFace
+  const baseLeft = projectEye(baseEyes.leftCenter, normalizedFace)
+  const baseRight = projectEye(baseEyes.rightCenter, normalizedFace)
+  const middleLeft = projectEye(baseEyes.leftCenter, middleRig)
+  const middleRight = projectEye(baseEyes.rightCenter, middleRig)
+  const alternateEyes = eyeById(stateDefinition.eyePair[1])
+  const cycleMs = Math.max(
+    stateDefinition.cadenceMs,
+    stateDefinition.performance.durationMs,
+  )
+  const middlePercent = percentage(
+    (stateDefinition.performance.durationMs *
+      stateDefinition.performance.times[1] *
+      100) /
+      cycleMs,
+  )
+  const returnPercent = percentage(
+    (stateDefinition.performance.durationMs * 100) / cycleMs,
+  )
+  const cycleSeconds = `${cycleMs / 1000}s`
+
   return `<style>
 @media (prefers-reduced-motion:no-preference){
   #${rootId}{transform-box:fill-box;transform-origin:center;animation:mote-idle ${values.duration} cubic-bezier(.77,0,.175,1) infinite}
   #${rootId}-eyes{transform-box:fill-box;transform-origin:center;animation:mote-blink 5.1s cubic-bezier(.23,1,.32,1) infinite}
+  #${rootId}-left,#${rootId}-right,#${rootId}-left-path,#${rootId}-right-path{animation-duration:${cycleSeconds};animation-timing-function:cubic-bezier(.77,0,.175,1);animation-iteration-count:infinite}
+  #${rootId}-left{transform-origin:${baseEyes.leftCenter.x}px ${baseEyes.leftCenter.y}px;animation-name:${rootId}-left-rig}
+  #${rootId}-right{transform-origin:${baseEyes.rightCenter.x}px ${baseEyes.rightCenter.y}px;animation-name:${rootId}-right-rig}
+  #${rootId}-left-path{animation-name:${rootId}-left-expression}
+  #${rootId}-right-path{animation-name:${rootId}-right-expression}
 }
 @keyframes mote-idle{0%,100%{transform:${values.end}}50%{transform:${values.middle}}}
 @keyframes mote-blink{0%,44%,48%,100%{transform:scaleY(1)}46%{transform:scaleY(.08)}}
+@keyframes ${rootId}-left-rig{0%,${returnPercent}%,100%{transform:${baseLeft.cssTransform};opacity:${baseLeft.opacity}}${middlePercent}%{transform:${middleLeft.cssTransform};opacity:${middleLeft.opacity}}}
+@keyframes ${rootId}-right-rig{0%,${returnPercent}%,100%{transform:${baseRight.cssTransform};opacity:${baseRight.opacity}}${middlePercent}%{transform:${middleRight.cssTransform};opacity:${middleRight.opacity}}}
+@keyframes ${rootId}-left-expression{0%,${returnPercent}%,100%{d:path("${baseEyes.leftPath}")} ${middlePercent}%{d:path("${alternateEyes.leftPath}")}}
+@keyframes ${rootId}-right-expression{0%,${returnPercent}%,100%{d:path("${baseEyes.rightPath}")} ${middlePercent}%{d:path("${alternateEyes.rightPath}")}}
 </style>`
 }
 
@@ -117,7 +159,9 @@ export const createAvatarSvg = ({
     titleText
       ? `<title id="${titleId}">${escapeMarkup(titleText)}</title>`
       : '',
-    animated ? createAnimationStyle(motion, rootId) : '',
+    animated
+      ? createAnimationStyle(motion, rootId, state, eyes, normalizedFace)
+      : '',
     `<defs><clipPath id="${clipId}"><path d="${path}"/></clipPath></defs>`,
     `<g id="${rootId}">`,
     `<path d="${path}" fill="${normalizedColor}"/>`,
@@ -125,8 +169,8 @@ export const createAvatarSvg = ({
       ? `<image href="${escapeMarkup(imageDataUrl)}" x="48" y="48" width="224" height="224" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})" opacity=".78"/>`
       : '',
     `<g id="${rootId}-eyes" fill="${normalizedEyeColor}" clip-path="url(#${clipId})">`,
-    `<g opacity="${leftProjection.opacity}" transform="${leftProjection.svgTransform}"><path d="${eyes.leftPath}"/></g>`,
-    `<g opacity="${rightProjection.opacity}" transform="${rightProjection.svgTransform}"><path d="${eyes.rightPath}"/></g>`,
+    `<g id="${rootId}-left" opacity="${leftProjection.opacity}" transform="${leftProjection.svgTransform}"><path id="${rootId}-left-path" d="${eyes.leftPath}"/></g>`,
+    `<g id="${rootId}-right" opacity="${rightProjection.opacity}" transform="${rightProjection.svgTransform}"><path id="${rootId}-right-path" d="${eyes.rightPath}"/></g>`,
     '</g></g></svg>',
   ].join('')
 }

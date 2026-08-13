@@ -63,7 +63,7 @@ describe('Mote Studio', () => {
     })
 
     expect(
-      screen.getByText('Thinking eye performance playing'),
+      screen.getByText('Thinking face performance playing'),
     ).toBeInTheDocument()
     expect(document.querySelector('[data-pose-performance="thinking"]')).toBe(
       document.querySelector('svg[role="img"]'),
@@ -78,6 +78,17 @@ describe('Mote Studio', () => {
     const gazePad = screen.getByRole('button', { name: /Eye direction:/ })
     fireEvent.keyDown(gazePad, { key: 'Home' })
     expect(gazePad).toHaveAccessibleName(/center, middle/)
+  })
+
+  it('offers twelve distinct face performances', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('tab', { name: 'rig' }))
+
+    expect(screen.getByRole('group', { name: 'Pose' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Surprised:/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /Focused:/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /Shy:/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /Doubtful:/ })).toBeVisible()
   })
 
   it('keeps keyboard-initiated pose changes instant', () => {

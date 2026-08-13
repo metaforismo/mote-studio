@@ -31,12 +31,14 @@ export {
   DEFAULT_FACE_RIG,
   avatarStateById,
   normalizeFaceRig,
+  performanceRigFrames,
   projectEye,
   type AvatarStateDefinition,
   type AvatarStateId,
   type EyeProjection,
   type FaceRigConfig,
   type FaceRigOverrides,
+  type FaceRigPerformance,
 } from './face-rig.js'
 export { generateMoteConfig, type MoteOverrides } from './generate.js'
 export { createAvatarSvg, type AvatarSvgOptions } from './svg.js'

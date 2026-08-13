@@ -4,6 +4,7 @@ import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
 import {
   AVATAR_STATES,
   eyeById,
+  performanceRigFrames,
   projectEye,
   shapeById,
   type AvatarStateId,
@@ -92,6 +93,10 @@ const POSE_SHORT_LABELS: Record<AvatarStateId, string> = {
   curious: 'Curious',
   playful: 'Playful',
   sleeping: 'Sleep',
+  surprised: 'Surprise',
+  focused: 'Focus',
+  shy: 'Shy',
+  doubtful: 'Doubt',
 }
 
 type FaceRigPanelProps = {
@@ -132,8 +137,15 @@ function StatePreview({
   const eyes = eyeById(definition.eyePair[0])
   const alternateEyes = eyeById(definition.eyePair[1])
   const shapePath = shapeById(shapeId).path
-  const left = projectEye(eyes.leftCenter, definition.rig)
-  const right = projectEye(eyes.rightCenter, definition.rig)
+  const rigFrames = performanceRigFrames(definition)
+  const leftFrames = rigFrames.map((frame) =>
+    projectEye(eyes.leftCenter, frame),
+  )
+  const rightFrames = rigFrames.map((frame) =>
+    projectEye(eyes.rightCenter, frame),
+  )
+  const left = leftFrames[0]
+  const right = rightFrames[0]
   const clipId = `rig-state-${stateId}`
 
   return (
@@ -145,7 +157,28 @@ function StatePreview({
       </defs>
       <path d={shapePath} fill={color} />
       <g fill={eyeColor} clipPath={`url(#${clipId})`}>
-        <g opacity={left.opacity} transform={left.svgTransform}>
+        <motion.g
+          key={`left-projection-${performanceToken}`}
+          initial={false}
+          animate={{
+            opacity:
+              animatePerformance && !reduceMotion
+                ? leftFrames.map((frame) => frame.opacity)
+                : left.opacity,
+            transform:
+              animatePerformance && !reduceMotion
+                ? leftFrames.map((frame) => frame.cssTransform)
+                : left.cssTransform,
+          }}
+          transition={{
+            duration: definition.performance.durationMs / 1000,
+            times: [...definition.performance.times],
+            ease: [0.77, 0, 0.175, 1],
+          }}
+          style={{
+            transformOrigin: `${eyes.leftCenter.x}px ${eyes.leftCenter.y}px`,
+          }}
+        >
           <motion.path
             key={`left-${performanceToken}`}
             initial={false}
@@ -156,13 +189,34 @@ function StatePreview({
                   : eyes.leftPath,
             }}
             transition={{
-              duration: definition.performanceMs / 1000,
-              times: [0, 0.46, 1],
+              duration: definition.performance.durationMs / 1000,
+              times: [...definition.performance.times],
               ease: [0.77, 0, 0.175, 1],
             }}
           />
-        </g>
-        <g opacity={right.opacity} transform={right.svgTransform}>
+        </motion.g>
+        <motion.g
+          key={`right-projection-${performanceToken}`}
+          initial={false}
+          animate={{
+            opacity:
+              animatePerformance && !reduceMotion
+                ? rightFrames.map((frame) => frame.opacity)
+                : right.opacity,
+            transform:
+              animatePerformance && !reduceMotion
+                ? rightFrames.map((frame) => frame.cssTransform)
+                : right.cssTransform,
+          }}
+          transition={{
+            duration: definition.performance.durationMs / 1000,
+            times: [...definition.performance.times],
+            ease: [0.77, 0, 0.175, 1],
+          }}
+          style={{
+            transformOrigin: `${eyes.rightCenter.x}px ${eyes.rightCenter.y}px`,
+          }}
+        >
           <motion.path
             key={`right-${performanceToken}`}
             initial={false}
@@ -173,12 +227,12 @@ function StatePreview({
                   : eyes.rightPath,
             }}
             transition={{
-              duration: definition.performanceMs / 1000,
-              times: [0, 0.46, 1],
+              duration: definition.performance.durationMs / 1000,
+              times: [...definition.performance.times],
               ease: [0.77, 0, 0.175, 1],
             }}
           />
-        </g>
+        </motion.g>
       </g>
     </svg>
   )
@@ -298,7 +352,8 @@ export function FaceRigPanel({
           </span>
         </div>
         <p className="mt-1.5 text-xs leading-relaxed text-[#92958c]">
-          Each pose morphs between two expressions. Click again to replay.
+          Each pose combines an eye morph with a small rig gesture. Click again
+          to replay.
         </p>
       </div>
 
@@ -337,7 +392,7 @@ export function FaceRigPanel({
                     initial={{ transform: 'scaleX(0)' }}
                     animate={{ transform: 'scaleX(1)' }}
                     transition={{
-                      duration: definition.performanceMs / 1000,
+                      duration: definition.performance.durationMs / 1000,
                       ease: 'linear',
                     }}
                   />

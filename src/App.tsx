@@ -182,6 +182,7 @@ function App() {
         motion: config.motion,
         state: config.state,
         face: config.face,
+        animated: true,
         imageDataUrl: uploadedImage?.dataUrl,
       }),
     [
@@ -233,11 +234,11 @@ function App() {
     if (shouldAnimatePerformance) {
       posePerformanceTimer.current = window.setTimeout(() => {
         setPerformanceState(null)
-      }, state.performanceMs)
+      }, state.performance.durationMs)
     }
     setAnnouncement(
       shouldAnimatePerformance
-        ? `${state.label} eye performance playing`
+        ? `${state.label} face performance playing`
         : `${state.label} state selected`,
     )
   }
@@ -817,7 +818,9 @@ function App() {
         </main>
 
         <footer className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-4 pt-1 pb-8 text-xs text-[#85887f] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <p>Fourteen shapes · Twenty-five eye expressions · Eight states</p>
+          <p>
+            Fourteen shapes · Twenty-five eye expressions · Twelve performances
+          </p>
           <a
             href="#studio"
             className="inline-flex min-h-6 items-center gap-1.5 self-start rounded-lg transition-colors hover:text-[#c7c9c1] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none sm:self-auto"

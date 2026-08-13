@@ -46,10 +46,18 @@ describe('Mote MCP server', () => {
       states: expect.arrayContaining([
         expect.objectContaining({
           id: 'thinking',
-          eyePair: ['thinking', 'suspicious'],
-          performanceMs: 1350,
+          eyePair: ['thinking', 'wonder'],
+          performance: {
+            durationMs: 1500,
+            times: [0, 0.46, 1],
+            rigDeltas: expect.objectContaining({
+              turn: [0, -8, 0],
+              eyeSpacing: [0, -0.04, 0],
+            }),
+          },
           eyePool: expect.any(Array),
         }),
+        expect.objectContaining({ id: 'doubtful', label: 'Doubtful' }),
       ]),
       eyes: expect.arrayContaining([
         expect.objectContaining({ id: 'neutral', referenceIndex: 0 }),
@@ -80,6 +88,12 @@ describe('Mote MCP server', () => {
         face: expect.objectContaining({ perspective: expect.any(Number) }),
       },
     })
+    expect((first.structuredContent as { svg: string }).svg).toContain(
+      '-left-rig',
+    )
+    expect((first.structuredContent as { svg: string }).svg).toContain(
+      '-left-expression',
+    )
   })
 
   it('rejects invalid colors before a tool handler runs', async () => {
