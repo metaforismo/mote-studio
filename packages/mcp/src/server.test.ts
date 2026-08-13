@@ -48,11 +48,18 @@ describe('Mote MCP server', () => {
           id: 'thinking',
           eyePair: ['thinking', 'wonder'],
           performance: {
-            durationMs: 1500,
-            times: [0, 0.46, 1],
+            durationMs: 2200,
+            times: [0, 0.2, 0.48, 0.76, 1],
+            eyeSequence: [
+              'thinking',
+              'wonder',
+              'side-eye',
+              'wonder',
+              'thinking',
+            ],
             rigDeltas: expect.objectContaining({
-              turn: [0, -8, 0],
-              eyeSpacing: [0, -0.04, 0],
+              turn: [0, -18, -30, -12, 0],
+              eyeSpacing: [0, -0.1, -0.16, -0.07, 0],
             }),
           },
           eyePool: expect.any(Array),

@@ -1,6 +1,13 @@
 import { ArrowsClockwise, Eye, SlidersHorizontal } from '@phosphor-icons/react'
-import { motion } from 'motion/react'
-import { useRef, type KeyboardEvent, type PointerEvent } from 'react'
+import { animate, motion } from 'motion/react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react'
 import {
   AVATAR_STATES,
   eyeById,
@@ -135,7 +142,7 @@ function StatePreview({
   if (!definition) return null
 
   const eyes = eyeById(definition.eyePair[0])
-  const alternateEyes = eyeById(definition.eyePair[1])
+  const performanceEyes = definition.performance.eyeSequence.map(eyeById)
   const shapePath = shapeById(shapeId).path
   const rigFrames = performanceRigFrames(definition)
   const leftFrames = rigFrames.map((frame) =>
@@ -185,7 +192,7 @@ function StatePreview({
             animate={{
               d:
                 animatePerformance && !reduceMotion
-                  ? [eyes.leftPath, alternateEyes.leftPath, eyes.leftPath]
+                  ? performanceEyes.map((eye) => eye.leftPath)
                   : eyes.leftPath,
             }}
             transition={{
@@ -223,7 +230,7 @@ function StatePreview({
             animate={{
               d:
                 animatePerformance && !reduceMotion
-                  ? [eyes.rightPath, alternateEyes.rightPath, eyes.rightPath]
+                  ? performanceEyes.map((eye) => eye.rightPath)
                   : eyes.rightPath,
             }}
             transition={{
@@ -242,11 +249,56 @@ function RigSlider({
   control,
   value,
   onChange,
+  performanceValues,
+  performanceTimes,
+  performanceDurationMs,
+  performanceToken,
+  performanceActive,
 }: {
   control: RigControl
   value: number
   onChange: (key: keyof FaceRigConfig, value: number) => void
+  performanceValues?: readonly number[]
+  performanceTimes?: readonly number[]
+  performanceDurationMs?: number
+  performanceToken: number
+  performanceActive: boolean
 }) {
+  const [displayValue, setDisplayValue] = useState(value)
+
+  useEffect(() => {
+    if (
+      !performanceActive ||
+      !performanceValues ||
+      !performanceTimes ||
+      !performanceDurationMs
+    ) {
+      setDisplayValue(value)
+      return
+    }
+
+    const controls = animate(value, [...performanceValues], {
+      duration: performanceDurationMs / 1000,
+      times: [...performanceTimes],
+      ease: [0.77, 0, 0.175, 1],
+      onUpdate: setDisplayValue,
+      onComplete: () => setDisplayValue(value),
+    })
+    return () => controls.stop()
+  }, [
+    performanceActive,
+    performanceDurationMs,
+    performanceTimes,
+    performanceToken,
+    performanceValues,
+    value,
+  ])
+
+  const liveProgress = Math.max(
+    0,
+    Math.min(1, (displayValue - control.min) / (control.max - control.min)),
+  )
+
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-3 text-xs">
@@ -258,22 +310,40 @@ function RigSlider({
         </label>
         <output
           htmlFor={`rig-${control.key}`}
-          className="rounded-md bg-white/[0.055] px-2 py-0.5 text-[0.65rem] text-[#a7aaa1]"
+          aria-live="off"
+          className={`rounded-md px-2 py-0.5 text-[0.65rem] tabular-nums transition-colors ${performanceActive ? 'bg-[#f56a16]/15 text-[#ff9a5b]' : 'bg-white/[0.055] text-[#a7aaa1]'}`}
         >
-          {control.format(value)}
+          {control.format(displayValue)}
         </output>
       </div>
-      <input
-        id={`rig-${control.key}`}
-        type="range"
-        min={control.min}
-        max={control.max}
-        step={control.step}
-        value={value}
-        aria-valuetext={control.format(value)}
-        onChange={(event) => onChange(control.key, Number(event.target.value))}
-        className="rig-range w-full"
-      />
+      <div className="relative">
+        <input
+          id={`rig-${control.key}`}
+          type="range"
+          min={control.min}
+          max={control.max}
+          step={control.step}
+          value={value}
+          aria-valuetext={control.format(value)}
+          onChange={(event) =>
+            onChange(control.key, Number(event.target.value))
+          }
+          className={`rig-range w-full ${performanceActive ? 'opacity-45' : ''}`}
+        />
+        {performanceActive ? (
+          <span
+            className="pointer-events-none absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-black/20"
+            data-rig-live-meter={control.key}
+            aria-hidden="true"
+          >
+            <span
+              className="block h-full w-full origin-left rounded-full bg-[#f56a16] shadow-[0_0_10px_rgba(245,106,22,0.65)]"
+              data-rig-live-value={displayValue.toFixed(4)}
+              style={{ transform: `scaleX(${liveProgress})` }}
+            />
+          </span>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -293,6 +363,20 @@ export function FaceRigPanel({
   reduceMotion,
 }: FaceRigPanelProps) {
   const padRef = useRef<HTMLButtonElement>(null)
+  const activePerformance = useMemo(
+    () =>
+      performanceState
+        ? AVATAR_STATES.find((definition) => definition.id === performanceState)
+        : undefined,
+    [performanceState],
+  )
+  const liveRigFrames = useMemo(
+    () =>
+      activePerformance
+        ? performanceRigFrames(activePerformance, face)
+        : undefined,
+    [activePerformance, face],
+  )
 
   const setGaze = (x: number, y: number) => {
     onChange('gazeX', clamp(x))
@@ -342,7 +426,7 @@ export function FaceRigPanel({
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-medium text-[#f2f0e8]">
             <SlidersHorizontal aria-hidden="true" size={17} />
-            Face pose
+            Face performance
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.07] bg-white/[0.035] px-2 py-1 text-[0.62rem] font-medium text-[#9da097]">
             <span
@@ -352,14 +436,15 @@ export function FaceRigPanel({
           </span>
         </div>
         <p className="mt-1.5 text-xs leading-relaxed text-[#92958c]">
-          Each pose combines an eye morph with a small rig gesture. Click again
-          to replay.
+          Each performance runs a multi-step eye and face sequence. Turn,
+          spacing and eye size below show the live choreography; click again to
+          replay.
         </p>
       </div>
 
       <fieldset>
         <legend className="mb-2 text-[0.68rem] font-semibold tracking-[0.18em] text-[#8f9188] uppercase">
-          Pose
+          Performance
         </legend>
         <div className="grid grid-cols-4 gap-2">
           {AVATAR_STATES.map((definition) => (
@@ -448,6 +533,13 @@ export function FaceRigPanel({
             control={control}
             value={face[control.key]}
             onChange={onChange}
+            performanceValues={liveRigFrames?.map(
+              (frame) => frame[control.key],
+            )}
+            performanceTimes={activePerformance?.performance.times}
+            performanceDurationMs={activePerformance?.performance.durationMs}
+            performanceToken={performanceToken}
+            performanceActive={Boolean(activePerformance) && !reduceMotion}
           />
         ))}
       </div>
@@ -490,6 +582,13 @@ export function FaceRigPanel({
               control={control}
               value={face[control.key]}
               onChange={onChange}
+              performanceValues={liveRigFrames?.map(
+                (frame) => frame[control.key],
+              )}
+              performanceTimes={activePerformance?.performance.times}
+              performanceDurationMs={activePerformance?.performance.durationMs}
+              performanceToken={performanceToken}
+              performanceActive={Boolean(activePerformance) && !reduceMotion}
             />
           ))}
         </div>

@@ -222,27 +222,29 @@ export const MoteAvatar = memo(function MoteAvatar({
   const path = shapeById(shapeId).path
   const eyes = eyeById(eyeStyle)
   const stateDefinition = avatarStateById(state)
-  const performanceEyes = eyeById(stateDefinition.eyePair[1])
   const preset = MOTION_PRESETS[motionLevel]
   const morphTransition = shouldReduceMotion ? { duration: 0 } : MORPH_SPRING
   const performancePaths = useMemo(
     () => ({
       left:
         posePerformanceActive && !shouldReduceMotion
-          ? [eyes.leftPath, performanceEyes.leftPath, eyes.leftPath]
+          ? stateDefinition.performance.eyeSequence.map(
+              (eyeId) => eyeById(eyeId).leftPath,
+            )
           : eyes.leftPath,
       right:
         posePerformanceActive && !shouldReduceMotion
-          ? [eyes.rightPath, performanceEyes.rightPath, eyes.rightPath]
+          ? stateDefinition.performance.eyeSequence.map(
+              (eyeId) => eyeById(eyeId).rightPath,
+            )
           : eyes.rightPath,
     }),
     [
       eyes.leftPath,
       eyes.rightPath,
-      performanceEyes.leftPath,
-      performanceEyes.rightPath,
       posePerformanceActive,
       shouldReduceMotion,
+      stateDefinition.performance.eyeSequence,
     ],
   )
   const eyePathTransition = posePerformanceActive
@@ -318,7 +320,7 @@ export const MoteAvatar = memo(function MoteAvatar({
 
     for (const [key, frames] of Object.entries(
       stateDefinition.performance.rigDeltas,
-    ) as [keyof FaceRigConfig, readonly [number, number, number]][]) {
+    ) as [keyof FaceRigConfig, readonly number[]][]) {
       controls.push(
         animate(performanceValues[key], [...frames], {
           duration: stateDefinition.performance.durationMs / 1000,
