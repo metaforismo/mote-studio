@@ -124,6 +124,57 @@ describe('Mote Studio', () => {
     expect(document.querySelector('ellipse')).not.toBeInTheDocument()
   })
 
+  it('builds animations from reusable expressions and advanced geometry', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('tab', { name: 'animate' }))
+
+    expect(screen.getByRole('combobox', { name: 'Animation' })).toHaveValue(
+      'animation-soft-scan',
+    )
+    expect(
+      screen.getByRole('group', { name: 'Playback controls' }),
+    ).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }))
+    expect(screen.getByRole('button', { name: 'Resume' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Resume' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    expect(screen.getByRole('button', { name: 'Play' })).toBeVisible()
+    fireEvent.click(screen.getByRole('tab', { name: 'Expressions' }))
+    expect(screen.getByLabelText('Link left and right eye edits')).toBeChecked()
+    fireEvent.click(screen.getByLabelText('Link left and right eye edits'))
+    fireEvent.change(
+      screen.getByRole('spinbutton', { name: 'left eye Width' }),
+      {
+        target: { value: '1.2' },
+      },
+    )
+    expect(
+      screen.getByRole('spinbutton', { name: 'right eye Width' }),
+    ).toHaveValue(1)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Geometry' }))
+    fireEvent.click(screen.getByRole('button', { name: /Sphere/ }))
+    expect(
+      document.querySelector('[data-surface="sphere"]'),
+    ).toBeInTheDocument()
+  })
+
+  it('creates avatar copies without eagerly copying shared behavior', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('tab', { name: 'animate' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Library' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New avatar' }))
+
+    expect(screen.getByRole('button', { name: /Mote 2/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(
+      screen.getByText('This avatar is using shared behavior.'),
+    ).toBeVisible()
+  })
+
   it('shows an inline validation error for unsupported uploads', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('tab', { name: 'upload' }))

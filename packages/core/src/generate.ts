@@ -2,8 +2,11 @@ import {
   COLORS,
   DEFAULT_CONFIG,
   MOTION_IDS,
+  SURFACE_IDS,
   normalizeHexColor,
+  normalizeSurface,
   type MoteConfig,
+  type SurfaceOverrides,
 } from './presets.js'
 import { EYE_IDS } from './eyes.js'
 import {
@@ -14,8 +17,9 @@ import {
 } from './face-rig.js'
 import { SHAPE_IDS } from './shapes.js'
 
-export type MoteOverrides = Omit<Partial<MoteConfig>, 'face'> & {
+export type MoteOverrides = Omit<Partial<MoteConfig>, 'face' | 'surface'> & {
   face?: FaceRigOverrides
+  surface?: SurfaceOverrides
 }
 
 const hashSeed = (seed: string): number => {
@@ -67,6 +71,12 @@ export const generateMoteConfig = (
     motion: overrides.motion ?? pick(MOTION_IDS, random),
     state,
     face: normalizeFaceRig({ ...stateDefinition.rig, ...overrides.face }),
+    surface: normalizeSurface(
+      overrides.surface ?? {
+        ...DEFAULT_CONFIG.surface,
+        id: pick(SURFACE_IDS, random),
+      },
+    ),
     autoMorph: overrides.autoMorph ?? DEFAULT_CONFIG.autoMorph,
     autoEyes: overrides.autoEyes ?? DEFAULT_CONFIG.autoEyes,
   }

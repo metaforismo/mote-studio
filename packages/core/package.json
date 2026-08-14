@@ -1,6 +1,6 @@
 {
   "name": "@mote-studio/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Framework-agnostic SVG generation primitives for Mote Studio.",
   "type": "module",
   "license": "MIT",

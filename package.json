@@ -1,7 +1,7 @@
 {
   "name": "mote-studio",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A local-first character lab for expressive, animated SVG motes.",
   "license": "MIT",
   "author": "metaforismo",

@@ -1,4 +1,11 @@
-import { getEyeColor, normalizeHexColor, type MotionLevel } from './presets.js'
+import {
+  DEFAULT_CONFIG,
+  getEyeColor,
+  normalizeHexColor,
+  normalizeSurface,
+  type MotionLevel,
+  type SurfaceOverrides,
+} from './presets.js'
 import { eyeById, type EyeId } from './eyes.js'
 import {
   avatarStateById,
@@ -10,6 +17,11 @@ import {
   type FaceRigConfig,
 } from './face-rig.js'
 import { shapeById, type ShapeId } from './shapes.js'
+import {
+  DEFAULT_EYE_PAIR,
+  type EyePairTransform,
+  type EyeTransform,
+} from './studio.js'
 
 export type AvatarSvgOptions = {
   shapeId: ShapeId
@@ -19,6 +31,8 @@ export type AvatarSvgOptions = {
   motion?: MotionLevel
   state?: AvatarStateId
   face?: Partial<FaceRigConfig>
+  eyeTransform?: EyePairTransform
+  surface?: SurfaceOverrides
   animated?: boolean
   title?: string
   imageDataUrl?: string | null
@@ -151,6 +165,8 @@ export const createAvatarSvg = ({
   motion = 'playful',
   state = 'idle',
   face = DEFAULT_FACE_RIG,
+  eyeTransform = DEFAULT_EYE_PAIR,
+  surface = DEFAULT_CONFIG.surface,
   animated = false,
   title,
   imageDataUrl,
@@ -158,6 +174,7 @@ export const createAvatarSvg = ({
   const path = shapeById(shapeId).path
   const eyes = eyeById(eyeStyle)
   const normalizedFace = normalizeFaceRig(face)
+  const normalizedSurface = normalizeSurface(surface)
   const leftProjection = projectEye(eyes.leftCenter, normalizedFace)
   const rightProjection = projectEye(eyes.rightCenter, normalizedFace)
   const normalizedColor = normalizeHexColor(color)
@@ -171,14 +188,35 @@ export const createAvatarSvg = ({
   }
 
   const suffix = hashText(
-    `${shapeId}:${eyeStyle}:${normalizedColor}:${normalizedEyeColor}:${motion}:${state}:${JSON.stringify(normalizedFace)}:${titleText ?? ''}`,
+    `${shapeId}:${eyeStyle}:${normalizedColor}:${normalizedEyeColor}:${motion}:${state}:${JSON.stringify(normalizedFace)}:${JSON.stringify(normalizedSurface)}:${JSON.stringify(eyeTransform)}:${titleText ?? ''}`,
   )
   const rootId = `mote-${suffix}`
   const clipId = `${rootId}-clip`
   const titleId = `${rootId}-title`
+  const sphereId = `${rootId}-sphere`
+  const bandId = `${rootId}-band`
   const accessibility = titleText
     ? `role="img" aria-labelledby="${titleId}"`
     : 'aria-hidden="true"'
+  const localEyeTransform = (
+    side: EyeTransform,
+    center: { x: number; y: number },
+  ) =>
+    `translate(${center.x} ${center.y}) translate(${side.offsetX} ${side.offsetY}) rotate(${side.rotation}) scale(${side.scaleX} ${side.scaleY}) translate(${-center.x} ${-center.y})`
+  const surfaceMarkup = (() => {
+    if (normalizedSurface.id === 'flat') return ''
+    const common = `clip-path="url(#${clipId})" opacity="${0.16 + normalizedSurface.depth * 0.54}" transform="rotate(${normalizedSurface.rotateZ} 160 160) skewX(${normalizedSurface.rotateY * 0.08}) scale(1 ${1 - Math.abs(normalizedSurface.rotateX) * 0.0015})" data-surface="${normalizedSurface.id}"`
+    if (normalizedSurface.id === 'sphere') {
+      return `<g ${common}><rect width="320" height="320" fill="url(#${sphereId})"/></g>`
+    }
+    if (
+      normalizedSurface.id === 'cylinder' ||
+      normalizedSurface.id === 'capsule'
+    ) {
+      return `<g ${common}><rect width="320" height="320" fill="url(#${bandId})"/>${normalizedSurface.id === 'capsule' ? '<ellipse cx="160" cy="78" rx="116" ry="42" fill="#fff" opacity=".16"/>' : ''}</g>`
+    }
+    return `<g ${common}><path d="M0 0H175L145 320H0Z" fill="#fff" opacity=".3"/><path d="M175 0H320V320H145Z" fill="#080907" opacity=".44"/><path d="M0 0H320L238 92H76Z" fill="#fff" opacity=".18"/></g>`
+  })()
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" ${accessibility}>`,
@@ -188,15 +226,16 @@ export const createAvatarSvg = ({
     animated
       ? createAnimationStyle(motion, rootId, state, eyes, normalizedFace)
       : '',
-    `<defs><clipPath id="${clipId}"><path d="${path}"/></clipPath></defs>`,
+    `<defs><clipPath id="${clipId}"><path d="${path}"/></clipPath><radialGradient id="${sphereId}" cx="${45 + normalizedSurface.rotateY * 0.28}%" cy="${38 + normalizedSurface.rotateX * 0.22}%" r="72%"><stop offset="0" stop-color="#fff" stop-opacity=".72"/><stop offset=".48" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#050604" stop-opacity=".72"/></radialGradient><linearGradient id="${bandId}" x1="0" y1=".5" x2="1" y2=".5"><stop offset="0" stop-color="#060705" stop-opacity=".48"/><stop offset=".42" stop-color="#fff" stop-opacity=".34"/><stop offset=".68" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#050604" stop-opacity=".42"/></linearGradient></defs>`,
     `<g id="${rootId}">`,
     `<path d="${path}" fill="${normalizedColor}"/>`,
+    surfaceMarkup,
     imageDataUrl
       ? `<image href="${escapeMarkup(imageDataUrl)}" x="48" y="48" width="224" height="224" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})" opacity=".78"/>`
       : '',
     `<g id="${rootId}-eyes" fill="${normalizedEyeColor}" clip-path="url(#${clipId})">`,
-    `<g id="${rootId}-left" opacity="${leftProjection.opacity}" transform="${leftProjection.svgTransform}"><path id="${rootId}-left-path" d="${eyes.leftPath}"/></g>`,
-    `<g id="${rootId}-right" opacity="${rightProjection.opacity}" transform="${rightProjection.svgTransform}"><path id="${rootId}-right-path" d="${eyes.rightPath}"/></g>`,
+    `<g id="${rootId}-left" opacity="${leftProjection.opacity}" transform="${leftProjection.svgTransform}"><g transform="${localEyeTransform(eyeTransform.left, eyes.leftCenter)}"><path id="${rootId}-left-path" d="${eyes.leftPath}"/></g></g>`,
+    `<g id="${rootId}-right" opacity="${rightProjection.opacity}" transform="${rightProjection.svgTransform}"><g transform="${localEyeTransform(eyeTransform.right, eyes.rightCenter)}"><path id="${rootId}-right-path" d="${eyes.rightPath}"/></g></g>`,
     '</g></g></svg>',
   ].join('')
 }

@@ -35,7 +35,7 @@ export function ShapePicker({
               aria-label={`${shape.label}: ${shape.description}`}
               aria-pressed={isSelected}
               onClick={() => onSelect(shape.id)}
-              className="group relative aspect-square rounded-xl border bg-[#1d1e1a] p-1.5 transition-[border-color,background-color,transform] duration-150 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171815] focus-visible:outline-none active:translate-y-0 active:scale-[0.96]"
+              className="motion-hover-lift group relative aspect-square rounded-xl border bg-[#1d1e1a] p-1.5 transition-[border-color,background-color,transform] duration-150 focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171815] focus-visible:outline-none active:translate-y-0 active:scale-[0.96]"
               style={{
                 borderColor: isSelected ? '#66695f' : 'rgba(255,255,255,0.055)',
                 boxShadow: isSelected

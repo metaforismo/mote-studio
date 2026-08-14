@@ -84,9 +84,43 @@
   transform: rotate(45deg);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .motion-hover-lift:hover,
+  .group:hover .motion-group-lift {
+    transform: translateY(-0.125rem);
+  }
+
+  .motion-hover-scale:hover {
+    transform: scale(1.1);
+  }
+
+  .group:hover .motion-brand-mark {
+    transform: rotate(-6deg);
+  }
+
+  .group:hover .motion-group-rotate {
+    transform: rotate(6deg);
+  }
+}
+
+.motion-hover-lift:active {
+  transform: scale(0.97);
+}
+
+.motion-hover-scale:active {
+  transform: scale(0.92);
+}
+
 @keyframes skeleton-shimmer {
   to {
     transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+    transform: translateX(0);
   }
 }
 

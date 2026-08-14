@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { EyePicker } from './components/EyePicker'
 import { FaceRigPanel } from './components/FaceRigPanel'
+import { AnimationStudioPanel } from './components/AnimationStudioPanel'
 import { MoteAvatar } from './components/MoteAvatar'
 import { PalettePicker } from './components/PalettePicker'
 import { ShapePicker } from './components/ShapePicker'
@@ -21,6 +22,7 @@ import {
   COLORS,
   AVATAR_STATES,
   DEFAULT_CONFIG,
+  DEFAULT_EYE_PAIR,
   DEFAULT_FACE_RIG,
   EYES,
   MOTION_LEVELS,
@@ -28,25 +30,42 @@ import {
   createAvatarSvg,
   getEyeColor,
   avatarStateById,
+  activeAvatar,
+  createStudioDocument,
+  parseStudioDocument,
   normalizeFaceRig,
+  normalizeSurface,
   shapeById,
   type MoteConfig,
   type AvatarStateId,
   type EyeId,
   type FaceRigConfig,
+  type EyePairTransform,
+  type MoteExpression,
+  type MoteStudioDocument,
   type MotionLevel,
   type ShapeId,
+  type SurfaceConfig,
 } from '@mote-studio/core'
-import { downloadPng, downloadSvg } from './lib/exportAvatar'
+import {
+  downloadJavaScript,
+  downloadPng,
+  downloadReactComponent,
+  downloadSvg,
+  type PngExportOptions,
+} from './lib/exportAvatar'
 import type { WinkSide, WinkTokens } from './components/MoteAvatar'
+import { useAnimationPlayer } from './hooks/useAnimationPlayer'
 
-type StudioTab = 'bot' | 'rig' | 'generate' | 'upload'
+type StudioTab = 'bot' | 'rig' | 'animate' | 'generate' | 'upload'
 type ExportState = 'idle' | 'png' | 'error'
 
-const TAB_ORDER: StudioTab[] = ['bot', 'rig', 'generate', 'upload']
+const TAB_ORDER: StudioTab[] = ['bot', 'rig', 'animate', 'generate', 'upload']
 
 const readSavedConfig = (): MoteConfig => {
   try {
+    const project = window.localStorage.getItem('mote-studio:project')
+    if (project) return activeAvatar(parseStudioDocument(project)).config
     const saved = window.localStorage.getItem('mote-studio:config')
     if (!saved) return DEFAULT_CONFIG
     const parsed = JSON.parse(saved) as Partial<MoteConfig>
@@ -79,11 +98,23 @@ const readSavedConfig = (): MoteConfig => {
       motion: parsed.motion as MotionLevel,
       state: (parsed.state ?? DEFAULT_CONFIG.state) as AvatarStateId,
       face: normalizeFaceRig(parsed.face ?? DEFAULT_FACE_RIG),
+      surface: normalizeSurface(parsed.surface),
       autoMorph: parsed.autoMorph ?? DEFAULT_CONFIG.autoMorph,
       autoEyes: parsed.autoEyes ?? DEFAULT_CONFIG.autoEyes,
     }
   } catch {
     return DEFAULT_CONFIG
+  }
+}
+
+const readSavedDocument = (): MoteStudioDocument => {
+  try {
+    const saved = window.localStorage.getItem('mote-studio:project')
+    return saved
+      ? parseStudioDocument(saved)
+      : createStudioDocument(readSavedConfig())
+  } catch {
+    return createStudioDocument(readSavedConfig())
   }
 }
 
@@ -94,6 +125,10 @@ const randomDifferent = <T,>(items: T[], current: T): T => {
 
 function App() {
   const [config, setConfig] = useState<MoteConfig>(readSavedConfig)
+  const [studioDocument, setStudioDocument] =
+    useState<MoteStudioDocument>(readSavedDocument)
+  const [eyeTransform, setEyeTransform] =
+    useState<EyePairTransform>(DEFAULT_EYE_PAIR)
   const [activeTab, setActiveTab] = useState<StudioTab>('bot')
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null)
   const [gaze, setGaze] = useState({ x: 0, y: 0 })
@@ -108,6 +143,10 @@ function App() {
     useState<AvatarStateId | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [exportState, setExportState] = useState<ExportState>('idle')
+  const [pngOptions, setPngOptions] = useState<PngExportOptions>({
+    size: 1024,
+    background: { type: 'transparent' },
+  })
   const [announcement, setAnnouncement] = useState('Mote ready')
   const generateTimer = useRef<number | undefined>(undefined)
   const posePerformanceTimer = useRef<number | undefined>(undefined)
@@ -115,9 +154,47 @@ function App() {
   const isMorphing = config.autoMorph && !shouldReduceMotion
   const eyeColor = getEyeColor(config.color)
 
+  const applyExpression = (expression: MoteExpression) => {
+    if (posePerformanceTimer.current)
+      window.clearTimeout(posePerformanceTimer.current)
+    setPerformanceState(null)
+    setConfig((current) => ({
+      ...current,
+      eyeStyle: expression.eyeStyle,
+      face: expression.face,
+    }))
+    setEyeTransform(expression.eyes)
+    setAnnouncement(`${expression.name} expression applied`)
+  }
+
+  const animationPlayer = useAnimationPlayer((step) => {
+    const behavior =
+      activeAvatar(studioDocument).behavior ?? studioDocument.sharedBehavior
+    const expression = behavior.expressions.find(
+      (candidate) => candidate.id === step.expressionId,
+    )
+    if (expression) applyExpression(expression)
+  })
+
   useEffect(() => {
     window.localStorage.setItem('mote-studio:config', JSON.stringify(config))
   }, [config])
+
+  useEffect(() => {
+    setStudioDocument((current) => ({
+      ...current,
+      avatars: current.avatars.map((avatar) =>
+        avatar.id === current.activeAvatarId ? { ...avatar, config } : avatar,
+      ),
+    }))
+  }, [config])
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      'mote-studio:project',
+      JSON.stringify(studioDocument),
+    )
+  }, [studioDocument])
 
   useEffect(
     () => () => {
@@ -182,6 +259,8 @@ function App() {
         motion: config.motion,
         state: config.state,
         face: config.face,
+        eyeTransform,
+        surface: config.surface,
         animated: true,
         imageDataUrl: uploadedImage?.dataUrl,
       }),
@@ -192,7 +271,9 @@ function App() {
       config.motion,
       config.shapeId,
       config.state,
+      config.surface,
       eyeColor,
+      eyeTransform,
       uploadedImage?.dataUrl,
     ],
   )
@@ -214,6 +295,7 @@ function App() {
     if (posePerformanceTimer.current)
       window.clearTimeout(posePerformanceTimer.current)
     setConfig((current) => ({ ...current, eyeStyle }))
+    setEyeTransform(DEFAULT_EYE_PAIR)
     setPerformanceState(null)
     setAnnouncement(`${eyes?.label ?? 'Eye'} expression selected`)
   }
@@ -230,6 +312,7 @@ function App() {
       face: state.rig,
     }))
     setPosePerformanceToken((value) => value + 1)
+    setEyeTransform(DEFAULT_EYE_PAIR)
     setPerformanceState(shouldAnimatePerformance ? stateId : null)
     if (shouldAnimatePerformance) {
       posePerformanceTimer.current = window.setTimeout(() => {
@@ -295,6 +378,7 @@ function App() {
           }
         })
         setUploadedImage(null)
+        setEyeTransform(DEFAULT_EYE_PAIR)
         setIsGenerating(false)
         setAnnouncement('A new mote was generated')
       },
@@ -306,12 +390,56 @@ function App() {
     if (posePerformanceTimer.current)
       window.clearTimeout(posePerformanceTimer.current)
     setConfig(DEFAULT_CONFIG)
+    setStudioDocument(createStudioDocument(DEFAULT_CONFIG))
+    setEyeTransform(DEFAULT_EYE_PAIR)
+    animationPlayer.stop()
     setUploadedImage(null)
     setGaze({ x: 0, y: 0 })
     setWinkTokens({ left: 0, right: 0 })
     setPerformanceState(null)
     setExportState('idle')
     setAnnouncement('Studio reset to defaults')
+  }
+
+  const selectAvatar = (avatarId: string) => {
+    const avatar = studioDocument.avatars.find(
+      (candidate) => candidate.id === avatarId,
+    )
+    if (!avatar) return
+    animationPlayer.stop()
+    setStudioDocument((current) => ({ ...current, activeAvatarId: avatarId }))
+    setConfig(avatar.config)
+    setEyeTransform(DEFAULT_EYE_PAIR)
+    setAnnouncement(`${avatar.name} selected`)
+  }
+
+  const replaceStudioDocument = (next: MoteStudioDocument) => {
+    if (next.activeAvatarId !== studioDocument.activeAvatarId) {
+      setConfig(activeAvatar(next).config)
+      setEyeTransform(DEFAULT_EYE_PAIR)
+      animationPlayer.stop()
+    }
+    setStudioDocument(next)
+  }
+
+  const updateSurface = (surface: SurfaceConfig) => {
+    const normalized = normalizeSurface(surface)
+    setConfig((current) => ({
+      ...current,
+      surface: normalized,
+    }))
+    setStudioDocument((current) => ({
+      ...current,
+      avatars: current.avatars.map((avatar) =>
+        avatar.id === current.activeAvatarId
+          ? {
+              ...avatar,
+              config: { ...avatar.config, surface: normalized },
+            }
+          : avatar,
+      ),
+    }))
+    setAnnouncement(`${surface.id} surface selected`)
   }
 
   const handleStagePointer = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -357,7 +485,7 @@ function App() {
   const exportPng = async () => {
     setExportState('png')
     try {
-      await downloadPng(svgSource)
+      await downloadPng(svgSource, pngOptions)
       setExportState('idle')
       setAnnouncement('PNG downloaded')
     } catch {
@@ -381,7 +509,7 @@ function App() {
             href="/"
             className="group inline-flex items-center gap-2.5 rounded-lg focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none"
           >
-            <span className="relative grid h-7 w-7 place-items-center rounded-[0.65rem] bg-[#f56a16] text-[#161713] transition-transform duration-200 group-hover:-rotate-6">
+            <span className="motion-brand-mark relative grid h-7 w-7 place-items-center rounded-[0.65rem] bg-[#f56a16] text-[#161713] transition-transform duration-200">
               <span className="absolute top-[8px] left-[7px] h-[9px] w-[4px] rotate-[8deg] rounded-full bg-[#161713]" />
               <span className="absolute top-[8px] right-[7px] h-[9px] w-[4px] rotate-[8deg] rounded-full bg-[#161713]" />
             </span>
@@ -445,6 +573,8 @@ function App() {
                 motionLevel={config.motion}
                 state={config.state}
                 faceRig={config.face}
+                eyeTransform={eyeTransform}
+                surface={config.surface}
                 gaze={gaze}
                 blinkToken={blinkToken}
                 winkTokens={winkTokens}
@@ -525,7 +655,7 @@ function App() {
 
           <aside className="flex min-h-[600px] flex-col overflow-hidden rounded-[1.75rem] border border-white/[0.08] bg-[#171815] shadow-[inset_0_1px_0_rgba(255,255,255,0.055),0_24px_70px_rgba(0,0,0,0.26)] lg:min-h-[calc(100dvh-116px)]">
             <div
-              className="flex items-center border-b border-white/[0.07] px-3 pt-2.5"
+              className="flex items-center overflow-x-auto border-b border-white/[0.07] px-2 pt-2.5 sm:px-3"
               role="tablist"
               aria-label="Studio tools"
             >
@@ -540,7 +670,7 @@ function App() {
                   tabIndex={activeTab === tab ? 0 : -1}
                   onClick={() => setActiveTab(tab)}
                   onKeyDown={(event) => handleTabKeyDown(event, tab)}
-                  className="relative rounded-t-xl px-2.5 py-3 text-[0.8rem] font-medium text-[#979991] capitalize transition-colors hover:text-[#dedfd8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none focus-visible:ring-inset sm:px-3"
+                  className="relative rounded-t-xl px-2 py-3 text-[0.72rem] font-medium text-[#979991] capitalize transition-colors hover:text-[#dedfd8] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none focus-visible:ring-inset sm:px-3 sm:text-[0.8rem]"
                 >
                   {tab}
                   {activeTab === tab ? (
@@ -551,7 +681,7 @@ function App() {
               <button
                 type="button"
                 onClick={resetAll}
-                className="ml-auto rounded-xl px-2.5 py-3 text-[0.8rem] font-medium text-[#979991] transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none focus-visible:ring-inset active:scale-[0.97] sm:px-3"
+                className="ml-auto rounded-xl px-2 py-3 text-[0.72rem] font-medium text-[#979991] transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none focus-visible:ring-inset active:scale-[0.97] sm:px-3 sm:text-[0.8rem]"
               >
                 Reset
               </button>
@@ -614,6 +744,17 @@ function App() {
                       }))
                       setAnnouncement('Face pose reset')
                     }}
+                  />
+                ) : null}
+
+                {activeTab === 'animate' ? (
+                  <AnimationStudioPanel
+                    document={studioDocument}
+                    onDocumentChange={replaceStudioDocument}
+                    onSelectAvatar={selectAvatar}
+                    onApplyExpression={applyExpression}
+                    onSurfaceChange={updateSurface}
+                    playback={animationPlayer}
                   />
                 ) : null}
 
@@ -739,11 +880,82 @@ function App() {
                       <span className="relative h-6 w-10 shrink-0 rounded-full bg-[#383a34] transition-colors peer-checked:bg-[#f56a16] peer-focus-visible:ring-2 peer-focus-visible:ring-[#f56a16] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#171815] peer-disabled:opacity-45 after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-[#f4f2eb] after:transition-transform peer-checked:after:translate-x-4" />
                     </label>
 
+                    <details className="rig-advanced rounded-[1.1rem] border border-white/[0.07] bg-[#1c1d19] p-4">
+                      <summary className="cursor-pointer text-sm font-medium text-[#e2e2dc] focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none">
+                        Photo and code export
+                      </summary>
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        <label>
+                          <span className="mb-1 block text-[0.65rem] text-[#8f9188]">
+                            PNG size
+                          </span>
+                          <select
+                            aria-label="PNG size"
+                            value={pngOptions.size}
+                            onChange={(event) =>
+                              setPngOptions((current) => ({
+                                ...current,
+                                size: Number(
+                                  event.target.value,
+                                ) as PngExportOptions['size'],
+                              }))
+                            }
+                            className="w-full rounded-lg border border-white/10 bg-[#11120f] px-2.5 py-2 text-xs text-[#eeece4] outline-none focus:border-[#f56a16]"
+                          >
+                            <option value="512">512 × 512</option>
+                            <option value="1024">1024 × 1024</option>
+                            <option value="2048">2048 × 2048</option>
+                          </select>
+                        </label>
+                        <label>
+                          <span className="mb-1 block text-[0.65rem] text-[#8f9188]">
+                            Background
+                          </span>
+                          <select
+                            aria-label="PNG background"
+                            value={pngOptions.background.type}
+                            onChange={(event) => {
+                              const type = event.target.value
+                              setPngOptions((current) => ({
+                                ...current,
+                                background:
+                                  type === 'transparent'
+                                    ? { type: 'transparent' }
+                                    : type === 'solid'
+                                      ? { type: 'solid', color: '#eeede7' }
+                                      : type === 'linear'
+                                        ? {
+                                            type: 'linear',
+                                            from: '#f7f3e8',
+                                            to: '#d8d4ca',
+                                          }
+                                        : {
+                                            type: 'radial',
+                                            from: '#fffaf0',
+                                            to: '#c9c5ba',
+                                          },
+                              }))
+                            }}
+                            className="w-full rounded-lg border border-white/10 bg-[#11120f] px-2.5 py-2 text-xs text-[#eeece4] outline-none focus:border-[#f56a16]"
+                          >
+                            <option value="transparent">Transparent</option>
+                            <option value="solid">Solid</option>
+                            <option value="linear">Linear gradient</option>
+                            <option value="radial">Radial gradient</option>
+                          </select>
+                        </label>
+                      </div>
+                      <p className="mt-3 text-[0.65rem] leading-relaxed text-[#777a71]">
+                        SVG stays dependency-free. JavaScript and React exports
+                        wrap the same portable markup for direct reuse.
+                      </p>
+                    </details>
+
                     <button
                       type="button"
                       onClick={generateMote}
                       disabled={isGenerating}
-                      className="group flex w-full items-center justify-between rounded-[1.05rem] bg-[#f56a16] px-4 py-3.5 font-semibold text-[#171813] transition-transform duration-200 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[#ff914f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171815] focus-visible:outline-none active:translate-y-0 active:scale-[0.985] disabled:cursor-wait disabled:opacity-70"
+                      className="motion-hover-lift group flex w-full items-center justify-between rounded-[1.05rem] bg-[#f56a16] px-4 py-3.5 font-semibold text-[#171813] transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-[#ff914f] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171815] focus-visible:outline-none active:translate-y-0 active:scale-[0.985] disabled:cursor-wait disabled:opacity-70"
                     >
                       <span>
                         {isGenerating ? 'Composing…' : 'Generate a new mote'}
@@ -752,7 +964,7 @@ function App() {
                         aria-hidden="true"
                         size={19}
                         weight="bold"
-                        className="transition-transform duration-200 group-hover:rotate-6"
+                        className="motion-group-rotate transition-transform duration-200"
                       />
                     </button>
                   </div>
@@ -774,14 +986,14 @@ function App() {
               </section>
 
               <div className="border-t border-white/[0.07] p-4 sm:p-5">
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       downloadSvg(svgSource)
                       setAnnouncement('SVG downloaded')
                     }}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2.5 text-sm font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 px-2 py-2.5 text-xs font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
                   >
                     <DownloadSimple aria-hidden="true" size={17} />
                     SVG
@@ -790,7 +1002,7 @@ function App() {
                     type="button"
                     onClick={exportPng}
                     disabled={exportState === 'png'}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2.5 text-sm font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 px-2 py-2.5 text-xs font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
                   >
                     {exportState === 'png' ? (
                       <ArrowsClockwise
@@ -802,6 +1014,26 @@ function App() {
                       <DownloadSimple aria-hidden="true" size={17} />
                     )}
                     PNG
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadJavaScript(svgSource)
+                      setAnnouncement('JavaScript component downloaded')
+                    }}
+                    className="inline-flex items-center justify-center rounded-xl border border-white/10 px-2 py-2.5 text-xs font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
+                  >
+                    JS
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      downloadReactComponent(svgSource)
+                      setAnnouncement('React component downloaded')
+                    }}
+                    className="inline-flex items-center justify-center rounded-xl border border-white/10 px-2 py-2.5 text-xs font-medium text-[#d3d4cd] transition-colors hover:bg-white/5 hover:text-white focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:outline-none active:scale-[0.98]"
+                  >
+                    React
                   </button>
                 </div>
                 {exportState === 'error' ? (
@@ -819,7 +1051,8 @@ function App() {
 
         <footer className="mx-auto flex w-full max-w-[1400px] flex-col gap-3 px-4 pt-1 pb-8 text-xs text-[#85887f] sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p>
-            Fourteen shapes · Twenty-five eye expressions · Twelve performances
+            Fourteen shapes · Twenty-five expressions · Four editable animations
+            · Five surfaces
           </p>
           <a
             href="#studio"
