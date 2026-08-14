@@ -16,8 +16,10 @@ import {
   type AvatarStateId,
   type EyeId,
   type FaceRigConfig,
+  type EyePairTransform,
   type MotionLevel,
   type ShapeId,
+  type SurfaceConfig,
 } from '@mote-studio/core'
 
 export type WinkSide = 'left' | 'right'
@@ -31,6 +33,8 @@ type MoteAvatarProps = {
   motionLevel: MotionLevel
   state: AvatarStateId
   faceRig: FaceRigConfig
+  eyeTransform?: EyePairTransform
+  surface: SurfaceConfig
   gaze: { x: number; y: number }
   blinkToken: number
   winkTokens: WinkTokens
@@ -166,6 +170,8 @@ export const MoteAvatar = memo(function MoteAvatar({
   motionLevel,
   state,
   faceRig,
+  eyeTransform,
+  surface,
   gaze,
   blinkToken,
   winkTokens,
@@ -176,6 +182,16 @@ export const MoteAvatar = memo(function MoteAvatar({
 }: MoteAvatarProps) {
   const shouldReduceMotion = useReducedMotion()
   const [autoBlink, setAutoBlink] = useState(0)
+  const leftBlink = useMotionValue(1)
+  const rightBlink = useMotionValue(1)
+  const leftBlinkTransform = useTransform(
+    leftBlink,
+    (value) => `scaleY(${value})`,
+  )
+  const rightBlinkTransform = useTransform(
+    rightBlink,
+    (value) => `scaleY(${value})`,
+  )
   const demoTurn = useMotionValue(0)
   const performanceGazeX = useMotionValue(0)
   const performanceGazeY = useMotionValue(0)
@@ -219,8 +235,21 @@ export const MoteAvatar = memo(function MoteAvatar({
     perspective: useRigSpring(faceRig.perspective),
   }
   const clipId = useId().replaceAll(':', '')
+  const sphereGradientId = `${clipId}-sphere`
+  const bandGradientId = `${clipId}-band`
   const path = shapeById(shapeId).path
   const eyes = eyeById(eyeStyle)
+  const sideTransform = (side: 'left' | 'right') => {
+    const value = eyeTransform?.[side] ?? {
+      scaleX: 1,
+      scaleY: 1,
+      offsetX: 0,
+      offsetY: 0,
+      rotation: 0,
+    }
+    const center = side === 'left' ? eyes.leftCenter : eyes.rightCenter
+    return `translate(${center.x} ${center.y}) translate(${value.offsetX} ${value.offsetY}) rotate(${value.rotation}) scale(${value.scaleX} ${value.scaleY}) translate(${-center.x} ${-center.y})`
+  }
   const stateDefinition = avatarStateById(state)
   const preset = MOTION_PRESETS[motionLevel]
   const morphTransition = shouldReduceMotion ? { duration: 0 } : MORPH_SPRING
@@ -296,6 +325,34 @@ export const MoteAvatar = memo(function MoteAvatar({
   }, [shouldReduceMotion])
 
   useEffect(() => {
+    if (shouldReduceMotion) {
+      leftBlink.set(1)
+      return
+    }
+    if (autoBlink === 0 && blinkToken === 0 && winkTokens.left === 0) return
+    const controls = animate(leftBlink, [leftBlink.get(), 0.04, 1], {
+      duration: 0.32,
+      times: [0, 0.42, 1],
+      ease: EASE_OUT,
+    })
+    return () => controls.stop()
+  }, [autoBlink, blinkToken, leftBlink, shouldReduceMotion, winkTokens.left])
+
+  useEffect(() => {
+    if (shouldReduceMotion) {
+      rightBlink.set(1)
+      return
+    }
+    if (autoBlink === 0 && blinkToken === 0 && winkTokens.right === 0) return
+    const controls = animate(rightBlink, [rightBlink.get(), 0.04, 1], {
+      duration: 0.32,
+      times: [0, 0.42, 1],
+      ease: EASE_OUT,
+    })
+    return () => controls.stop()
+  }, [autoBlink, blinkToken, rightBlink, shouldReduceMotion, winkTokens.right])
+
+  useEffect(() => {
     if (turnToken === 0 || shouldReduceMotion) {
       demoTurn.set(0)
       return
@@ -342,13 +399,6 @@ export const MoteAvatar = memo(function MoteAvatar({
     stateDefinition,
   ])
 
-  const blinkKey = `${blinkToken}-${autoBlink}`
-  const blinkAnimation = shouldReduceMotion
-    ? undefined
-    : { transform: ['scaleY(1)', 'scaleY(0.04)', 'scaleY(1)'] }
-  const sharedBlinkAnimation =
-    blinkToken > 0 || autoBlink > 0 ? blinkAnimation : undefined
-
   return (
     <motion.svg
       viewBox="0 0 320 320"
@@ -372,6 +422,28 @@ export const MoteAvatar = memo(function MoteAvatar({
             transition={morphTransition}
           />
         </clipPath>
+        <radialGradient
+          id={sphereGradientId}
+          cx={`${45 + surface.rotateY * 0.28}%`}
+          cy={`${38 + surface.rotateX * 0.22}%`}
+          r="72%"
+        >
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.72" />
+          <stop offset="48%" stopColor="#ffffff" stopOpacity="0.08" />
+          <stop offset="100%" stopColor="#050604" stopOpacity="0.72" />
+        </radialGradient>
+        <linearGradient
+          id={bandGradientId}
+          x1={surface.id === 'cylinder' ? '0%' : '8%'}
+          y1={surface.id === 'cylinder' ? '50%' : '0%'}
+          x2={surface.id === 'cylinder' ? '100%' : '92%'}
+          y2={surface.id === 'cylinder' ? '50%' : '100%'}
+        >
+          <stop offset="0%" stopColor="#060705" stopOpacity="0.48" />
+          <stop offset="42%" stopColor="#ffffff" stopOpacity="0.34" />
+          <stop offset="68%" stopColor="#ffffff" stopOpacity="0.04" />
+          <stop offset="100%" stopColor="#050604" stopOpacity="0.42" />
+        </linearGradient>
       </defs>
 
       <motion.path
@@ -382,6 +454,43 @@ export const MoteAvatar = memo(function MoteAvatar({
           fill: { duration: 0.2, ease: EASE_OUT },
         }}
       />
+
+      {surface.id !== 'flat' ? (
+        <g
+          clipPath={`url(#${clipId})`}
+          opacity={0.16 + surface.depth * 0.54}
+          aria-hidden="true"
+          data-surface={surface.id}
+          style={{
+            transform: `rotate(${surface.rotateZ}deg) skewX(${surface.rotateY * 0.08}deg) scaleY(${1 - Math.abs(surface.rotateX) * 0.0015})`,
+            transformOrigin: '160px 160px',
+          }}
+        >
+          {surface.id === 'sphere' ? (
+            <rect width="320" height="320" fill={`url(#${sphereGradientId})`} />
+          ) : null}
+          {surface.id === 'cylinder' || surface.id === 'capsule' ? (
+            <rect width="320" height="320" fill={`url(#${bandGradientId})`} />
+          ) : null}
+          {surface.id === 'cube' ? (
+            <>
+              <path d="M0 0H175L145 320H0Z" fill="#ffffff" opacity="0.3" />
+              <path d="M175 0H320V320H145Z" fill="#080907" opacity="0.44" />
+              <path d="M0 0H320L238 92H76Z" fill="#ffffff" opacity="0.18" />
+            </>
+          ) : null}
+          {surface.id === 'capsule' ? (
+            <ellipse
+              cx="160"
+              cy="78"
+              rx="116"
+              ry="42"
+              fill="#ffffff"
+              opacity="0.16"
+            />
+          ) : null}
+        </g>
+      ) : null}
 
       {imageDataUrl ? (
         <motion.image
@@ -410,41 +519,27 @@ export const MoteAvatar = memo(function MoteAvatar({
           }}
         >
           <motion.g
-            key={blinkKey}
-            initial={{ transform: 'scaleY(1)' }}
-            animate={sharedBlinkAnimation}
-            transition={{
-              duration: 0.32,
-              times: [0, 0.42, 1],
-              ease: EASE_OUT,
-            }}
             style={{
+              transform: leftBlinkTransform,
               transformOrigin: `${eyes.leftCenter.x}px ${eyes.leftCenter.y}px`,
             }}
           >
-            <motion.g
-              key={`left-${winkTokens.left}`}
-              data-wink="left"
-              initial={{ transform: 'scaleY(1)' }}
-              animate={winkTokens.left > 0 ? blinkAnimation : undefined}
-              transition={{
-                duration: 0.32,
-                times: [0, 0.42, 1],
-                ease: EASE_OUT,
-              }}
-              style={{
-                transformOrigin: `${eyes.leftCenter.x}px ${eyes.leftCenter.y}px`,
-              }}
-            >
-              <motion.path
-                key={`left-performance-${posePerformanceToken}`}
+            <motion.g data-wink="left">
+              <motion.g
                 initial={false}
-                animate={{ d: performancePaths.left, fill: eyeColor }}
-                transition={{
-                  d: eyePathTransition,
-                  fill: { duration: 0.2, ease: EASE_OUT },
-                }}
-              />
+                animate={{ transform: sideTransform('left') }}
+                transition={morphTransition}
+              >
+                <motion.path
+                  key={`left-performance-${posePerformanceToken}`}
+                  initial={false}
+                  animate={{ d: performancePaths.left, fill: eyeColor }}
+                  transition={{
+                    d: eyePathTransition,
+                    fill: { duration: 0.2, ease: EASE_OUT },
+                  }}
+                />
+              </motion.g>
             </motion.g>
           </motion.g>
         </motion.g>
@@ -458,41 +553,27 @@ export const MoteAvatar = memo(function MoteAvatar({
           }}
         >
           <motion.g
-            key={blinkKey}
-            initial={{ transform: 'scaleY(1)' }}
-            animate={sharedBlinkAnimation}
-            transition={{
-              duration: 0.32,
-              times: [0, 0.42, 1],
-              ease: EASE_OUT,
-            }}
             style={{
+              transform: rightBlinkTransform,
               transformOrigin: `${eyes.rightCenter.x}px ${eyes.rightCenter.y}px`,
             }}
           >
-            <motion.g
-              key={`right-${winkTokens.right}`}
-              data-wink="right"
-              initial={{ transform: 'scaleY(1)' }}
-              animate={winkTokens.right > 0 ? blinkAnimation : undefined}
-              transition={{
-                duration: 0.32,
-                times: [0, 0.42, 1],
-                ease: EASE_OUT,
-              }}
-              style={{
-                transformOrigin: `${eyes.rightCenter.x}px ${eyes.rightCenter.y}px`,
-              }}
-            >
-              <motion.path
-                key={`right-performance-${posePerformanceToken}`}
+            <motion.g data-wink="right">
+              <motion.g
                 initial={false}
-                animate={{ d: performancePaths.right, fill: eyeColor }}
-                transition={{
-                  d: eyePathTransition,
-                  fill: { duration: 0.2, ease: EASE_OUT },
-                }}
-              />
+                animate={{ transform: sideTransform('right') }}
+                transition={morphTransition}
+              >
+                <motion.path
+                  key={`right-performance-${posePerformanceToken}`}
+                  initial={false}
+                  animate={{ d: performancePaths.right, fill: eyeColor }}
+                  transition={{
+                    d: eyePathTransition,
+                    fill: { duration: 0.2, ease: EASE_OUT },
+                  }}
+                />
+              </motion.g>
             </motion.g>
           </motion.g>
         </motion.g>

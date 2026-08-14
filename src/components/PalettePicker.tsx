@@ -29,7 +29,7 @@ export function PalettePicker({ selected, onSelect }: PalettePickerProps) {
               aria-label={color.name}
               aria-pressed={isSelected}
               onClick={() => onSelect(color.value)}
-              className="relative aspect-square min-h-9 min-w-9 rounded-full border-2 border-transparent transition-transform duration-150 hover:scale-110 focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171815] focus-visible:outline-none active:scale-[0.92]"
+              className="motion-hover-scale relative aspect-square min-h-9 min-w-9 rounded-full border-2 border-transparent transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-[#f56a16] focus-visible:ring-offset-2 focus-visible:ring-offset-[#171815] focus-visible:outline-none active:scale-[0.92]"
               style={{
                 backgroundColor: color.value,
                 boxShadow: isSelected

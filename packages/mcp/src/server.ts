@@ -9,12 +9,20 @@ import {
   EYE_IDS,
   MOTION_IDS,
   MOTION_LEVELS,
+  SURFACES,
+  SURFACE_IDS,
   SHAPES,
   SHAPE_IDS,
   avatarStateById,
+  behaviorForAvatar,
+  createStudioDocument,
   createAvatarSvg,
   generateMoteConfig,
   normalizeFaceRig,
+  normalizeSurface,
+  parseStudioDocument,
+  serializeStudioDocument,
+  type MoteStudioDocument,
 } from '@mote-studio/core'
 import * as z from 'zod/v4'
 
@@ -22,6 +30,7 @@ const shapeIdSchema = z.enum(SHAPE_IDS)
 const eyeIdSchema = z.enum(EYE_IDS)
 const motionSchema = z.enum(MOTION_IDS)
 const stateSchema = z.enum(AVATAR_STATE_IDS)
+const surfaceIdSchema = z.enum(SURFACE_IDS)
 const colorSchema = z
   .string()
   .regex(/^#[0-9a-f]{6}$/i, 'Use the #RRGGBB hexadecimal format')
@@ -35,6 +44,62 @@ const faceRigSchema = z.object({
   eyeRotation: z.number().min(-55).max(55),
   eyeOffsetY: z.number().min(-34).max(34),
   perspective: z.number().min(0).max(1.4),
+})
+
+const surfaceSchema = z.object({
+  id: surfaceIdSchema,
+  depth: z.number().min(0).max(1),
+  rotateX: z.number().min(-70).max(70),
+  rotateY: z.number().min(-70).max(70),
+  rotateZ: z.number().min(-180).max(180),
+})
+
+const eyeTransformSchema = z.object({
+  scaleX: z.number().min(0.35).max(1.8),
+  scaleY: z.number().min(0.08).max(1.8),
+  offsetX: z.number().min(-36).max(36),
+  offsetY: z.number().min(-36).max(36),
+  rotation: z.number().min(-70).max(70),
+})
+
+const eyePairTransformSchema = z.object({
+  linked: z.boolean(),
+  left: eyeTransformSchema,
+  right: eyeTransformSchema,
+})
+
+const expressionSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  eyeStyle: eyeIdSchema,
+  face: faceRigSchema,
+  eyes: eyePairTransformSchema,
+})
+
+const animationStepSchema = z.object({
+  id: z.string().min(1),
+  expressionId: z.string().min(1),
+  holdMs: z.number().int().min(0),
+  transitionMs: z.number().int().min(0),
+  transition: z.enum(['spring', 'smooth', 'snappy']),
+})
+
+const animationSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string(),
+  playbackMode: z.enum(['once', 'loop', 'pingPong']),
+  blink: z.object({
+    enabled: z.boolean(),
+    intervalMs: z.number().int().positive(),
+    varianceMs: z.number().int().min(0),
+  }),
+  steps: z.array(animationStepSchema).min(1),
+})
+
+const behaviorSchema = z.object({
+  expressions: z.array(expressionSchema).min(1),
+  animations: z.array(animationSchema),
 })
 
 const rigPerformanceSchema = z.object({
@@ -63,8 +128,23 @@ const moteConfigSchema = z.object({
   motion: motionSchema,
   state: stateSchema,
   face: faceRigSchema,
+  surface: surfaceSchema,
   autoMorph: z.boolean(),
   autoEyes: z.boolean(),
+})
+
+const studioDocumentSchema = z.object({
+  version: z.literal(1),
+  activeAvatarId: z.string().min(1),
+  avatars: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      config: moteConfigSchema,
+      behavior: behaviorSchema.nullable(),
+    }),
+  ),
+  sharedBehavior: behaviorSchema,
 })
 
 const renderedMoteSchema = z.object({
@@ -88,10 +168,10 @@ const toToolResult = <T extends Record<string, unknown>>(value: T) => ({
 
 export const createMoteServer = () => {
   const server = new McpServer(
-    { name: 'mote-studio', version: '0.1.0' },
+    { name: 'mote-studio', version: '0.2.0' },
     {
       instructions:
-        'Use list_mote_presets to discover supported silhouettes, eye expressions, behavioral states, colors, motion values, and the procedural face rig. Use create_mote for a deterministic configuration plus portable SVG, or render_mote_svg when the exact configuration is already known. All tools are local, read-only, and network-free.',
+        'Use list_mote_presets to discover silhouettes, surfaces, expressions, animations, colors, motion values, and the procedural rig. Use create_mote for one deterministic portable SVG, create_mote_project for an editable versioned project, render_mote_svg for an exact configuration, or render_mote_project_animation to resolve a project timeline into portable SVG frames. All tools are local, read-only, and network-free.',
     },
   )
 
@@ -126,6 +206,13 @@ export const createMoteServer = () => {
             description: z.string(),
           }),
         ),
+        surfaces: z.array(
+          z.object({
+            id: surfaceIdSchema,
+            label: z.string(),
+            description: z.string(),
+          }),
+        ),
         states: z.array(
           z.object({
             id: stateSchema,
@@ -139,6 +226,8 @@ export const createMoteServer = () => {
           }),
         ),
         defaults: moteConfigSchema,
+        expressions: z.array(expressionSchema),
+        animations: z.array(animationSchema),
       }),
       annotations: { ...readOnlyAnnotations, idempotentHint: true },
     },
@@ -157,8 +246,11 @@ export const createMoteServer = () => {
         })),
         colors: COLORS.map(({ name, value }) => ({ name, value })),
         motions: MOTION_LEVELS,
+        surfaces: SURFACES,
         states: AVATAR_STATES,
         defaults: DEFAULT_CONFIG,
+        expressions: createStudioDocument().sharedBehavior.expressions,
+        animations: createStudioDocument().sharedBehavior.animations,
       }),
   )
 
@@ -182,6 +274,7 @@ export const createMoteServer = () => {
         motion: motionSchema.optional(),
         state: stateSchema.optional(),
         face: faceRigSchema.partial().optional(),
+        surface: surfaceSchema.partial().optional(),
         autoMorph: z.boolean().optional(),
         autoEyes: z.boolean().optional(),
         animated: z.boolean().default(true),
@@ -204,6 +297,7 @@ export const createMoteServer = () => {
       motion,
       state,
       face,
+      surface,
       autoMorph,
       autoEyes,
       animated,
@@ -217,6 +311,9 @@ export const createMoteServer = () => {
         ...(motion === undefined ? {} : { motion }),
         ...(state === undefined ? {} : { state }),
         ...(face === undefined ? {} : { face }),
+        ...(surface === undefined
+          ? {}
+          : { surface: normalizeSurface(surface) }),
         ...(autoMorph === undefined ? {} : { autoMorph }),
         ...(autoEyes === undefined ? {} : { autoEyes }),
       })
@@ -227,6 +324,7 @@ export const createMoteServer = () => {
         motion: config.motion,
         state: config.state,
         face: config.face,
+        surface: config.surface,
         animated,
         ...(title === undefined ? {} : { title }),
       })
@@ -254,6 +352,8 @@ export const createMoteServer = () => {
         motion: motionSchema.default('playful'),
         state: stateSchema.default('idle'),
         face: faceRigSchema.optional(),
+        surface: surfaceSchema.optional(),
+        eyeTransform: eyePairTransformSchema.optional(),
         autoMorph: z.boolean().default(false),
         autoEyes: z.boolean().default(false),
         animated: z.boolean().default(true),
@@ -269,6 +369,8 @@ export const createMoteServer = () => {
       motion,
       state,
       face,
+      surface,
+      eyeTransform,
       autoMorph,
       autoEyes,
       animated,
@@ -284,6 +386,7 @@ export const createMoteServer = () => {
         motion,
         state,
         face: normalizedFace,
+        surface: normalizeSurface(surface),
         autoMorph,
         autoEyes,
       }
@@ -294,6 +397,8 @@ export const createMoteServer = () => {
         motion,
         state,
         face: normalizedFace,
+        surface: config.surface,
+        ...(eyeTransform === undefined ? {} : { eyeTransform }),
         animated,
         ...(title === undefined ? {} : { title }),
       })
@@ -305,6 +410,125 @@ export const createMoteServer = () => {
         mimeType: 'image/svg+xml' as const,
         animated,
       })
+    },
+  )
+
+  server.registerTool(
+    'create_mote_project',
+    {
+      title: 'Create a Mote Studio project',
+      description:
+        'Create a deterministic, editable version-1 project containing one or more avatars plus the shared expression and animation library.',
+      inputSchema: z.object({
+        seed: z.string().trim().min(1).max(128),
+        avatarCount: z.number().int().min(1).max(8).default(1),
+        shapeId: shapeIdSchema.optional(),
+        color: colorSchema.optional(),
+        surface: surfaceSchema.partial().optional(),
+      }),
+      outputSchema: z.object({
+        seed: z.string(),
+        project: studioDocumentSchema,
+        json: z.string(),
+      }),
+      annotations: { ...readOnlyAnnotations, idempotentHint: true },
+    },
+    async ({ seed, avatarCount, shapeId, color, surface }) => {
+      const configs = Array.from({ length: avatarCount }, (_, index) =>
+        generateMoteConfig(`${seed}:${index + 1}`, {
+          ...(shapeId === undefined ? {} : { shapeId }),
+          ...(color === undefined ? {} : { color }),
+          ...(surface === undefined
+            ? {}
+            : { surface: normalizeSurface(surface) }),
+        }),
+      )
+      const project = createStudioDocument(configs[0])
+      project.avatars = configs.map((config, index) => ({
+        id: `avatar-${index + 1}`,
+        name: `Mote ${index + 1}`,
+        config,
+        behavior: null,
+      }))
+      project.activeAvatarId = 'avatar-1'
+      return toToolResult({
+        seed,
+        project,
+        json: serializeStudioDocument(project),
+      })
+    },
+  )
+
+  server.registerTool(
+    'render_mote_project_animation',
+    {
+      title: 'Render a project animation timeline',
+      description:
+        'Resolve an animation from a versioned Mote Studio project into ordered portable SVG frames with exact hold and transition metadata.',
+      inputSchema: z.object({
+        project: studioDocumentSchema,
+        animationId: z.string().min(1),
+        avatarId: z.string().min(1).optional(),
+        title: z.string().trim().min(1).max(80).optional(),
+      }),
+      outputSchema: z.object({
+        avatarId: z.string(),
+        animation: animationSchema,
+        frames: z.array(
+          z.object({
+            index: z.number().int().min(0),
+            expression: expressionSchema,
+            holdMs: z.number().int().min(0),
+            transitionMs: z.number().int().min(0),
+            transition: z.enum(['spring', 'smooth', 'snappy']),
+            svg: z.string(),
+          }),
+        ),
+      }),
+      annotations: { ...readOnlyAnnotations, idempotentHint: true },
+    },
+    async ({ project: inputProject, animationId, avatarId, title }) => {
+      const project = parseStudioDocument(
+        JSON.stringify(inputProject),
+      ) as MoteStudioDocument
+      const resolvedAvatarId = avatarId ?? project.activeAvatarId
+      const avatar = project.avatars.find(({ id }) => id === resolvedAvatarId)
+      if (!avatar) throw new Error(`Unknown avatar: ${resolvedAvatarId}`)
+      const behavior = behaviorForAvatar(project, resolvedAvatarId)
+      const animation = behavior.animations.find(({ id }) => id === animationId)
+      if (!animation) throw new Error(`Unknown animation: ${animationId}`)
+
+      const frames = animation.steps.map((animationStep, index) => {
+        const expression = behavior.expressions.find(
+          ({ id }) => id === animationStep.expressionId,
+        )
+        if (!expression) {
+          throw new Error(
+            `Animation ${animation.id} references missing expression ${animationStep.expressionId}`,
+          )
+        }
+        return {
+          index,
+          expression,
+          holdMs: animationStep.holdMs,
+          transitionMs: animationStep.transitionMs,
+          transition: animationStep.transition,
+          svg: createAvatarSvg({
+            shapeId: avatar.config.shapeId,
+            eyeStyle: expression.eyeStyle,
+            color: avatar.config.color,
+            motion: avatar.config.motion,
+            state: avatar.config.state,
+            face: expression.face,
+            eyeTransform: expression.eyes,
+            surface: avatar.config.surface,
+            animated: false,
+            ...(title === undefined ? {} : { title }),
+          }),
+        }
+      })
+
+      return toToolResult({ avatarId: resolvedAvatarId, animation, frames })
     },
   )
 

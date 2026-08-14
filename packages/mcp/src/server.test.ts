@@ -29,6 +29,8 @@ describe('Mote MCP server', () => {
       'list_mote_presets',
       'create_mote',
       'render_mote_svg',
+      'create_mote_project',
+      'render_mote_project_animation',
     ])
     expect(tools.every((tool) => tool.annotations?.readOnlyHint)).toBe(true)
 
@@ -70,6 +72,14 @@ describe('Mote MCP server', () => {
         expect.objectContaining({ id: 'neutral', referenceIndex: 0 }),
         expect.objectContaining({ id: 'spark', referenceIndex: 24 }),
       ]),
+      surfaces: expect.arrayContaining([
+        expect.objectContaining({ id: 'sphere' }),
+        expect.objectContaining({ id: 'cube' }),
+        expect.objectContaining({ id: 'cylinder' }),
+      ]),
+      animations: expect.arrayContaining([
+        expect.objectContaining({ id: 'animation-curious-turn' }),
+      ]),
     })
   })
 
@@ -109,5 +119,41 @@ describe('Mote MCP server', () => {
       arguments: { shapeId: 'blob', color: 'orange' },
     })
     expect(result.isError).toBe(true)
+  })
+
+  it('creates versioned projects and resolves animation SVG frames', async () => {
+    const created = await client.callTool({
+      name: 'create_mote_project',
+      arguments: {
+        seed: 'project-seed',
+        avatarCount: 2,
+        surface: { id: 'sphere' },
+      },
+    })
+    expect(created.isError).not.toBe(true)
+    const project = (
+      created.structuredContent as { project: Record<string, unknown> }
+    ).project
+    expect(project).toMatchObject({ version: 1, activeAvatarId: 'avatar-1' })
+    expect((project.avatars as unknown[]).length).toBe(2)
+
+    const rendered = await client.callTool({
+      name: 'render_mote_project_animation',
+      arguments: {
+        project,
+        animationId: 'animation-curious-turn',
+      },
+    })
+    expect(rendered.isError).not.toBe(true)
+    expect(rendered.structuredContent).toMatchObject({
+      avatarId: 'avatar-1',
+      animation: { playbackMode: 'pingPong' },
+      frames: expect.arrayContaining([
+        expect.objectContaining({
+          transition: expect.any(String),
+          svg: expect.stringContaining('data-surface='),
+        }),
+      ]),
+    })
   })
 })

@@ -27,7 +27,7 @@ describe('Mote MCP stdio entry point', () => {
         arguments: { seed: 'stdio-proof', animated: false },
       })
 
-      expect(tools).toHaveLength(3)
+      expect(tools).toHaveLength(5)
       expect(result.isError).not.toBe(true)
       expect(result.structuredContent).toMatchObject({
         seed: 'stdio-proof',

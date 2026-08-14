@@ -104,7 +104,7 @@ export function UploadPanel({ image, onChange }: UploadPanelProps) {
           </>
         ) : (
           <>
-            <span className="grid h-11 w-11 place-items-center rounded-[0.9rem] bg-[#272823] text-[#d7d8d0] transition-transform duration-200 group-hover:-translate-y-0.5">
+            <span className="motion-group-lift grid h-11 w-11 place-items-center rounded-[0.9rem] bg-[#272823] text-[#d7d8d0] transition-transform duration-200">
               <UploadSimple aria-hidden="true" size={21} weight="bold" />
             </span>
             <span className="mt-4 text-sm font-medium text-[#f2f0e8]">

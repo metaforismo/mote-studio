@@ -10,10 +10,15 @@ import {
   SHAPE_IDS,
   closedCurvePath,
   createAvatarSvg,
+  createStudioDocument,
+  detachAvatarBehavior,
+  duplicateAvatar,
   generateMoteConfig,
   eyeById,
   performanceRigFrames,
   projectEye,
+  parseStudioDocument,
+  serializeStudioDocument,
 } from './index.js'
 
 describe('Mote core', () => {
@@ -142,5 +147,63 @@ describe('Mote core', () => {
         imageDataUrl: 'https://example.com/private.png',
       }),
     ).toThrow('Textures must be PNG, JPEG, or WebP base64 data URLs')
+  })
+
+  it('round-trips a versioned multi-avatar document with copy-on-write behavior', () => {
+    const shared = createStudioDocument()
+    const duplicated = duplicateAvatar(shared)
+    expect(duplicated.avatars).toHaveLength(2)
+    expect(duplicated.avatars.every(({ behavior }) => behavior === null)).toBe(
+      true,
+    )
+
+    const detached = detachAvatarBehavior(duplicated)
+    const active = detached.avatars.find(
+      ({ id }) => id === detached.activeAvatarId,
+    )
+    expect(active?.behavior).not.toBe(detached.sharedBehavior)
+    expect(active?.behavior).toEqual(detached.sharedBehavior)
+
+    const parsed = parseStudioDocument(serializeStudioDocument(detached))
+    expect(parsed).toEqual(detached)
+  })
+
+  it('rejects project animations with broken expression references', () => {
+    const document = createStudioDocument()
+    document.sharedBehavior.animations[0]!.steps[0]!.expressionId =
+      'expression-missing'
+
+    expect(() =>
+      parseStudioDocument(serializeStudioDocument(document)),
+    ).toThrow('references missing expression expression-missing')
+  })
+
+  it('renders independent eye transforms and projected surface geometry', () => {
+    const svg = createAvatarSvg({
+      shapeId: 'cloud',
+      color: '#f56a16',
+      surface: { id: 'sphere', depth: 0.7, rotateX: 12, rotateY: -18 },
+      eyeTransform: {
+        linked: false,
+        left: {
+          scaleX: 1.2,
+          scaleY: 0.8,
+          offsetX: -4,
+          offsetY: 2,
+          rotation: -8,
+        },
+        right: {
+          scaleX: 0.8,
+          scaleY: 1.15,
+          offsetX: 5,
+          offsetY: -2,
+          rotation: 10,
+        },
+      },
+    })
+
+    expect(svg).toContain('data-surface="sphere"')
+    expect(svg).toContain('scale(1.2 0.8)')
+    expect(svg).toContain('scale(0.8 1.15)')
   })
 })
